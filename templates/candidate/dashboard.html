@@ -1,20 +1,242 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Interviews - Smart Hire Candidate Portal</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: "#000000",
+              secondary: "#ffffff",
+            },
+            borderRadius: {
+              none: "0px",
+              sm: "4px",
+              DEFAULT: "8px",
+              md: "12px",
+              lg: "16px",
+              xl: "20px",
+              "2xl": "24px",
+              "3xl": "32px",
+              full: "9999px",
+              button: "8px",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      :where([class^="ri-"])::before {
+        content: "\f3c2";
+      }
 
-{% block title %}Candidate Dashboard{% endblock %}
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div class="min-h-screen flex">
+      <aside class="hidden lg:flex lg:w-72 bg-black text-white flex-col">
+        <div class="p-6 border-b border-gray-800">
+          <h1 class="text-2xl font-bold font-['Pacifico']">Smart Hire</h1>
+          <p class="text-sm text-gray-400 mt-1">Candidate Portal</p>
+        </div>
+        <nav class="flex-1 px-5 py-6 space-y-2">
+          <a
+            href="{{ url_for('candidate.dashboard') }}"
+            class="flex items-center px-4 py-3 text-sm rounded-lg bg-gray-800 text-white"
+          >
+            <div class="w-5 h-5 flex items-center justify-center mr-3">
+              <i class="ri-calendar-check-line"></i>
+            </div>
+            My Interviews
+          </a>
+          <a
+            href="{{ url_for('auth.logout') }}"
+            class="flex items-center px-4 py-3 text-sm rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <div class="w-5 h-5 flex items-center justify-center mr-3">
+              <i class="ri-logout-box-line"></i>
+            </div>
+            Log Out
+          </a>
+        </nav>
+      </aside>
 
-{% block content %}
-  <h1>My Interviews</h1>
-  <ul>
-    {% for assignment in assignments %}
-      <li>
-        <strong>{{ assignment.interview.title }}</strong>
-        <span>Status: {{ assignment.status }}</span>
-        <a href="{{ url_for('candidate.interview_session', assignment_id=assignment.id) }}">Open</a>
-      </li>
-    {% else %}
-      <li>No interviews assigned.</li>
-    {% endfor %}
-  </ul>
-{% endblock %}
+      <div class="flex-1 flex flex-col">
+        <header class="bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-black">Welcome back, {{ current_user.get_full_name() }}</h1>
+            <p class="text-sm text-gray-500">Here are your upcoming and past interviews.</p>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="text-right">
+              <p class="text-sm font-medium text-black">{{ current_user.email }}</p>
+              <p class="text-xs text-gray-500">Candidate</p>
+            </div>
+            <a
+              href="{{ url_for('auth.logout') }}"
+              class="px-4 py-2 text-sm border border-gray-300 rounded-button hover:bg-gray-100 transition-colors"
+            >
+              Logout
+            </a>
+          </div>
+        </header>
+
+        <main class="flex-1 p-6 lg:p-10">
+          <div class="mb-8 grid gap-6 md:grid-cols-3">
+            <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-gray-500">Upcoming Interviews</p>
+                  <p class="text-3xl font-bold text-black">
+                    {{ assignments | selectattr('status', 'in', ['invited', 'accepted', 'scheduled']) | list | length }}
+                  </p>
+                </div>
+                <div class="h-11 w-11 rounded-full bg-black flex items-center justify-center text-white">
+                  <i class="ri-timer-line"></i>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-gray-500">In Progress</p>
+                  <p class="text-3xl font-bold text-black">
+                    {{ assignments | selectattr('status', 'equalto', 'in_progress') | list | length }}
+                  </p>
+                </div>
+                <div class="h-11 w-11 rounded-full bg-black flex items-center justify-center text-white">
+                  <i class="ri-live-line"></i>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-gray-500">Completed</p>
+                  <p class="text-3xl font-bold text-black">
+                    {{ assignments | selectattr('status', 'equalto', 'completed') | list | length }}
+                  </p>
+                </div>
+                <div class="h-11 w-11 rounded-full bg-black flex items-center justify-center text-white">
+                  <i class="ri-checkbox-circle-line"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <section class="bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <div class="px-6 py-5 border-b border-gray-200 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-black">Interview Sessions</h2>
+                <p class="text-sm text-gray-500">Launch the interview portal, view schedule, and track progress.</p>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  class="px-4 py-2 text-sm border border-gray-300 rounded-button hover:bg-gray-100 transition-colors"
+                  onclick="window.location.reload()"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <div class="divide-y divide-gray-100">
+              {% if assignments %}
+                {% set status_badges = {
+                  'invited': ('Invited', 'bg-blue-100 text-blue-700'),
+                  'accepted': ('Accepted', 'bg-indigo-100 text-indigo-700'),
+                  'scheduled': ('Scheduled', 'bg-yellow-100 text-yellow-700'),
+                  'in_progress': ('Live', 'bg-green-100 text-green-700'),
+                  'completed': ('Completed', 'bg-gray-200 text-gray-700'),
+                  'no_show': ('No Show', 'bg-red-100 text-red-700')
+                } %}
+                {% for assignment in assignments %}
+                  {% set interview = assignment.interview %}
+                  {% set label, classes = status_badges.get(assignment.status, ('Pending', 'bg-gray-100 text-gray-600')) %}
+                  <article class="flex flex-col gap-4 px-6 py-5 md:flex-row md:items-center md:justify-between">
+                    <div class="flex items-start gap-4">
+                      <div class="hidden md:flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-black text-white">
+                        <i class="ri-mic-line text-xl"></i>
+                      </div>
+                      <div>
+                        <h3 class="text-base font-semibold text-black">
+                          {{ interview.title if interview else 'Interview' }}
+                        </h3>
+                        <p class="text-sm text-gray-500 mt-1">
+                          {{ interview.description[:140] + ('…' if interview and interview.description|length > 140 else '') if interview and interview.description else 'No description provided.' }}
+                        </p>
+                        <ul class="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                          {% if interview and interview.scheduled_at %}
+                            <li class="flex items-center gap-1">
+                              <i class="ri-calendar-line"></i>
+                              {{ interview.scheduled_at.strftime('%b %d, %Y %I:%M %p') }}
+                            </li>
+                          {% else %}
+                            <li class="flex items-center gap-1">
+                              <i class="ri-time-line"></i>
+                              Schedule pending
+                            </li>
+                          {% endif %}
+                          <li class="flex items-center gap-1">
+                            <i class="ri-timer-2-line"></i>
+                            {{ interview.duration_minutes if interview else 0 }} minutes
+                          </li>
+                          <li class="flex items-center gap-1">
+                            <i class="ri-folder-user-line"></i>
+                            Assigned on {{ assignment.invited_at.strftime('%b %d, %Y') }}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                      <span class="rounded-full px-3 py-1 text-xs font-semibold {{ classes }}">
+                        {{ label }}
+                      </span>
+                      <div class="flex gap-2">
+                        <a
+                          href="{{ url_for('candidate.interview_session', assignment_id=assignment.id) }}"
+                          class="inline-flex items-center gap-2 rounded-button border border-black px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-black hover:text-white"
+                        >
+                          <i class="ri-play-circle-line"></i>
+                          Open Session
+                        </a>
+                      </div>
+                    </div>
+                  </article>
+                {% endfor %}
+              {% else %}
+                <div class="px-6 py-16 text-center text-sm text-gray-500">
+                  <i class="ri-calendar-line text-3xl text-gray-400"></i>
+                  <p class="mt-3 font-medium text-black">No interviews assigned yet.</p>
+                  <p>Once an interviewer schedules your session, it will appear here.</p>
+                </div>
+              {% endif %}
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
 
 
