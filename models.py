@@ -59,6 +59,13 @@ class CandidateProfile(db.Model):
 
     user = db.relationship("User", back_populates="candidate_profile")
 
+    @classmethod
+    def create_for_user(cls, *, user: User, resume_url: str | None = None, notes: str | None = None) -> "CandidateProfile":
+        profile = cls(user=user, resume_url=resume_url, notes=notes)
+        db.session.add(profile)
+        db.session.commit()
+        return profile
+
 
 class Interview(db.Model):
     __tablename__ = "interviews"

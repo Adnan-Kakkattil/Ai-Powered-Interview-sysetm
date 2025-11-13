@@ -95,6 +95,17 @@
             </li>
             <li>
               <a
+                href="{{ url_for('admin.create_candidate') }}"
+                class="flex items-center px-4 py-3 text-sm rounded-lg {% if request.endpoint == 'admin.create_candidate' %}bg-gray-800 text-white{% else %}text-gray-300 hover:bg-gray-800 hover:text-white transition-colors{% endif %}"
+              >
+                <div class="w-5 h-5 flex items-center justify-center mr-3">
+                  <i class="ri-user-search-line"></i>
+                </div>
+                Create Candidate
+              </a>
+            </li>
+            <li>
+              <a
                 href="{{ url_for('admin.dashboard') }}#interviews"
                 class="flex items-center px-4 py-3 text-sm rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
               >
@@ -250,6 +261,13 @@
               >
                 <i class="ri-user-add-line mr-2"></i>
                 Manage Assignments
+              </a>
+              <a
+                href="{{ url_for('admin.create_candidate') }}"
+                class="inline-flex items-center bg-white text-black px-6 py-3 rounded-button border border-black hover:bg-gray-50 transition-colors whitespace-nowrap"
+              >
+                <i class="ri-user-search-line mr-2"></i>
+                Create Candidate
               </a>
             </div>
           </section>

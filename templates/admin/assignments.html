@@ -92,6 +92,17 @@
                 Assign Candidates
               </a>
             </li>
+            <li>
+              <a
+                href="{{ url_for('admin.create_candidate') }}"
+                class="flex items-center px-4 py-3 text-sm rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+              >
+                <div class="w-5 h-5 flex items-center justify-center mr-3">
+                  <i class="ri-user-search-line"></i>
+                </div>
+                Create Candidate
+              </a>
+            </li>
           </ul>
         </nav>
       </aside>
@@ -141,13 +152,50 @@
 
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Interview</label>
-                    {{ form.interview_id(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', size=1) }}
+                    {{ form.interview_id(id='interview-select', class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', size=1) }}
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Candidates</label>
-                    <p class="text-xs text-gray-500 mb-2">Hold Ctrl (Cmd on Mac) to select multiple candidates.</p>
-                    {{ form.candidate_ids(class_='w-full h-40 rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', multiple=True) }}
+                    <div class="flex items-center justify-between mb-2">
+                      <label class="block text-sm font-medium text-gray-700">Candidates</label>
+                      <span class="text-xs text-gray-500" id="candidate-selected-count">0 selected</span>
+                    </div>
+                    {% set assigned_ids = assignments_map.get(selected_interview_id, []) %}
+                    <div class="grid gap-3 sm:grid-cols-2" role="group" aria-label="Select candidates" id="candidate-grid">
+                      {% if candidates %}
+                        {% set selected_values = form.candidate_ids.data or [] %}
+                        {% for candidate in candidates %}
+                          {% set is_assigned = candidate.id in assigned_ids %}
+                          <label
+                            class="candidate-card relative flex items-start gap-3 rounded-xl border {{ 'border-green-400 bg-green-50 opacity-75 pointer-events-none' if is_assigned else 'border-gray-200 bg-white' }} px-4 py-3 shadow-sm transition-all hover:border-black hover:shadow-md"
+                            data-candidate-id="{{ candidate.id }}"
+                          >
+                            <input
+                              type="checkbox"
+                              name="{{ form.candidate_ids.name }}"
+                              value="{{ candidate.id }}"
+                              class="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                              {% if candidate.id in selected_values %}checked{% endif %}
+                              {% if is_assigned %}disabled{% endif %}
+                            />
+                            <div
+                              class="tick-icon flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border {{ 'border-green-500 bg-green-500 text-white' if is_assigned else 'border-gray-300 text-gray-400' }} transition-all peer-checked:border-transparent peer-checked:bg-black peer-checked:text-white"
+                            >
+                              <i class="ri-check-line text-base"></i>
+                            </div>
+                            <div class="flex flex-col">
+                              <span class="text-sm font-medium text-black">{{ candidate.get_full_name() }}</span>
+                              <span class="text-xs text-gray-500">{{ candidate.email }}</span>
+                              <span class="assigned-badge mt-1 inline-flex items-center rounded-full bg-green-200 px-2 py-0.5 text-[11px] font-semibold text-green-800 {{ '' if is_assigned else 'hidden' }}">
+                                Already assigned
+                              </span>
+                            </div>
+                          </label>
+                        {% endfor %}
+                      {% else %}
+                        <p class="text-sm text-gray-500">No candidates available.</p>
+                      {% endif %}
+                    </div>
                   </div>
 
                   <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
@@ -222,6 +270,66 @@
         </main>
       </div>
     </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const assignmentsMap = {{ assignments_map | tojson }};
+        const checkboxes = document.querySelectorAll('input[name="{{ form.candidate_ids.name }}"]');
+        const counter = document.getElementById("candidate-selected-count");
+        const cards = document.querySelectorAll(".candidate-card");
+        const interviewSelect = document.getElementById("interview-select");
+
+        function updateCount() {
+          const count = Array.from(checkboxes).filter((cb) => cb.checked).length;
+          counter.textContent = `${count} candidate${count === 1 ? "" : "s"} selected`;
+        }
+
+        function refreshAssignments() {
+          const selectedInterview = parseInt(interviewSelect.value, 10);
+          const assignedIds = new Set(assignmentsMap[selectedInterview] || []);
+
+          cards.forEach((card) => {
+            const candidateId = parseInt(card.dataset.candidateId, 10);
+            const checkbox = card.querySelector('input[type="checkbox"]');
+            const tick = card.querySelector(".tick-icon");
+            const badge = card.querySelector(".assigned-badge");
+
+            if (assignedIds.has(candidateId)) {
+              card.classList.add("border-green-400", "bg-green-50", "opacity-75", "pointer-events-none");
+              card.classList.remove("border-gray-200");
+              checkbox.checked = false;
+              checkbox.disabled = true;
+              tick.classList.add("bg-green-500", "text-white", "border-green-500");
+              tick.classList.remove("border-gray-300", "text-gray-400");
+              if (badge) {
+                badge.classList.remove("hidden");
+              }
+            } else {
+              card.classList.remove("border-green-400", "bg-green-50", "opacity-75", "pointer-events-none");
+              card.classList.add("border-gray-200");
+              checkbox.disabled = false;
+              tick.classList.remove("bg-green-500", "text-white", "border-green-500");
+              tick.classList.add("border-gray-300", "text-gray-400");
+              if (badge) {
+                badge.classList.add("hidden");
+              }
+            }
+          });
+
+          updateCount();
+        }
+
+        checkboxes.forEach((checkbox) => {
+          checkbox.addEventListener("change", updateCount);
+        });
+
+        if (interviewSelect) {
+          interviewSelect.addEventListener("change", refreshAssignments);
+        }
+
+        refreshAssignments();
+      });
+    </script>
   </body>
 </html>
 

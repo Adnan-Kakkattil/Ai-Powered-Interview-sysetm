@@ -13,7 +13,7 @@ from wtforms import (
     TextAreaField,
     TimeField,
 )
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, URL
 
 
 class LoginForm(FlaskForm):
@@ -60,5 +60,20 @@ class InviteCandidateForm(FlaskForm):
         coerce=int,
         validators=[DataRequired()],
     )
+
+
+class CandidateCreationForm(FlaskForm):
+    first_name = StringField("First Name", validators=[DataRequired(), Length(max=100)])
+    last_name = StringField("Last Name", validators=[DataRequired(), Length(max=100)])
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField(
+        "Temporary Password",
+        validators=[DataRequired(), Length(min=8)],
+    )
+    confirm_password = PasswordField(
+        "Confirm Password",
+        validators=[DataRequired(), EqualTo("password")],
+    )
+    resume_url = StringField("Resume URL", validators=[Optional(), URL()])
 
 

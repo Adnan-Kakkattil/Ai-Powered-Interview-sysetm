@@ -3,10 +3,11 @@ from datetime import datetime
 from flask import flash, redirect, render_template, url_for
 from flask_login import current_user, login_required
 
-from forms import CreateInterviewForm, InviteCandidateForm
-from models import Interview, InterviewAssignment, User, db
+from forms import CandidateCreationForm, CreateInterviewForm, InviteCandidateForm
+from models import CandidateProfile, Interview, InterviewAssignment, User, db
+from sqlalchemy.exc import IntegrityError
 from routes import admin_bp
-from services import interview_service
+from services import auth_service, interview_service
 
 
 @admin_bp.before_request
@@ -74,11 +75,49 @@ def manage_assignments():
         (candidate.id, candidate.get_full_name()) for candidate in candidates
     ]
 
+    assignments = (
+        InterviewAssignment.query.with_entities(
+            InterviewAssignment.interview_id, InterviewAssignment.candidate_id
+        ).all()
+    )
+    assignments_map: dict[int, set[int]] = {}
+    for interview_id, candidate_id in assignments:
+        assignments_map.setdefault(interview_id, set()).add(candidate_id)
+
+    if interviews and form.interview_id.data is None:
+        form.interview_id.data = interviews[0].id
+
+    selected_interview_id = form.interview_id.data
+
     if form.validate_on_submit():
         interview = Interview.query.get(form.interview_id.data)
+        if not interview:
+            flash("Selected interview could not be found.", "danger")
+            return redirect(url_for("admin.manage_assignments"))
+
         selected_candidates = User.query.filter(User.id.in_(form.candidate_ids.data)).all()
-        interview_service.assign_interview(interview, selected_candidates)
-        flash("Candidates assigned successfully.", "success")
+
+        created, skipped = interview_service.assign_interview(interview, selected_candidates)
+
+        if created:
+            flash(
+                f"Assigned {len(created)} candidate(s) to {interview.title}.",
+                "success",
+            )
+
+        if skipped:
+            skipped_names = ", ".join(candidate.get_full_name() for candidate in skipped[:5])
+            more = len(skipped) - 5
+            if more > 0:
+                skipped_names += f" and {more} more"
+            flash(
+                f"Skipped {len(skipped)} already assigned candidate(s): {skipped_names}.",
+                "warning",
+            )
+
+        if not created and not skipped:
+            flash("No candidates were selected for assignment.", "info")
+
         return redirect(url_for("admin.manage_assignments"))
 
     return render_template(
@@ -86,6 +125,39 @@ def manage_assignments():
         form=form,
         interviews=interviews,
         candidates=candidates,
+        assignments_map={key: list(value) for key, value in assignments_map.items()},
+        selected_interview_id=selected_interview_id,
+    )
+
+
+@admin_bp.route("/candidates/new", methods=["GET", "POST"])
+def create_candidate():
+    form = CandidateCreationForm()
+    if form.validate_on_submit():
+        try:
+            user = auth_service.create_user(
+                email=form.email.data,
+                password=form.password.data,
+                first_name=form.first_name.data,
+                last_name=form.last_name.data,
+                role="candidate",
+            )
+        except IntegrityError:
+            db.session.rollback()
+            flash("A user with that email already exists.", "danger")
+        else:
+            CandidateProfile.create_for_user(
+                user=user,
+                resume_url=form.resume_url.data or None,
+            )
+            flash(f"Candidate {user.get_full_name()} created.", "success")
+            return redirect(url_for("admin.manage_assignments"))
+
+    candidates = User.query.filter_by(role="candidate").order_by(User.created_at.desc()).limit(10).all()
+    return render_template(
+        "admin/create_candidate.html",
+        form=form,
+        recent_candidates=candidates,
     )
 
 

@@ -29,9 +29,20 @@ def create_interview(
     return interview
 
 
-def assign_interview(interview: Interview, candidates: Iterable[User]) -> list[InterviewAssignment]:
+def assign_interview(
+    interview: Interview, candidates: Iterable[User]
+) -> tuple[list[InterviewAssignment], list[User]]:
     assignments: list[InterviewAssignment] = []
+    skipped: list[User] = []
+
     for candidate in candidates:
+        existing = InterviewAssignment.query.filter_by(
+            interview_id=interview.id, candidate_id=candidate.id
+        ).first()
+        if existing:
+            skipped.append(candidate)
+            continue
+
         assignment = InterviewAssignment(
             interview_id=interview.id,
             candidate_id=candidate.id,
@@ -39,13 +50,15 @@ def assign_interview(interview: Interview, candidates: Iterable[User]) -> list[I
         db.session.add(assignment)
         assignments.append(assignment)
 
-    db.session.commit()
-    current_app.logger.info(
-        "Interview %s assigned to candidates: %s",
-        interview.id,
-        ", ".join(str(c.id) for c in candidates),
-    )
-    return assignments
+    if assignments:
+        db.session.commit()
+        current_app.logger.info(
+            "Interview %s assigned to candidates: %s",
+            interview.id,
+            ", ".join(str(a.candidate_id) for a in assignments),
+        )
+
+    return assignments, skipped
 
 
 def update_assignment_status(assignment: InterviewAssignment, status: str) -> InterviewAssignment:

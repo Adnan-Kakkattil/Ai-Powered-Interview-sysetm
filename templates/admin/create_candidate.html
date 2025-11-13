@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Create Interview - Smart Hire</title>
+    <title>Create Candidate - Smart Hire</title>
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
     <link
       rel="stylesheet"
@@ -73,7 +73,7 @@
             <li>
               <a
                 href="{{ url_for('admin.create_interview') }}"
-                class="flex items-center px-4 py-3 text-sm rounded-lg bg-gray-800 text-white"
+                class="flex items-center px-4 py-3 text-sm rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
               >
                 <div class="w-5 h-5 flex items-center justify-center mr-3">
                   <i class="ri-calendar-event-line"></i>
@@ -95,7 +95,7 @@
             <li>
               <a
                 href="{{ url_for('admin.create_candidate') }}"
-                class="flex items-center px-4 py-3 text-sm rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                class="flex items-center px-4 py-3 text-sm rounded-lg bg-gray-800 text-white"
               >
                 <div class="w-5 h-5 flex items-center justify-center mr-3">
                   <i class="ri-user-search-line"></i>
@@ -112,9 +112,9 @@
           class="bg-black text-white px-8 py-4 flex items-center justify-between"
         >
           <div>
-            <h1 class="text-2xl font-bold">Create Interview</h1>
+            <h1 class="text-2xl font-bold">Create Candidate</h1>
             <p class="text-gray-400 text-sm">
-              Plan a new interview session for candidates
+              Add a new candidate profile to the interview system
             </p>
           </div>
           <a
@@ -143,15 +143,15 @@
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
               <div class="px-8 py-6 border-b border-gray-200 flex items-center justify-between">
                 <div>
-                  <h2 class="text-xl font-semibold text-black">Interview Details</h2>
-                  <p class="text-sm text-gray-500">Provide the information below to schedule an interview.</p>
+                  <h2 class="text-xl font-semibold text-black">Candidate Details</h2>
+                  <p class="text-sm text-gray-500">Provide contact information and a temporary password.</p>
                 </div>
                 <a
-                  href="{{ url_for('admin.dashboard') }}"
+                  href="{{ url_for('admin.manage_assignments') }}"
                   class="inline-flex items-center text-sm text-gray-600 hover:text-black transition-colors"
                 >
                   <i class="ri-arrow-go-back-line mr-1"></i>
-                  Back to dashboard
+                  Back to assignments
                 </a>
               </div>
 
@@ -159,35 +159,35 @@
                 {{ form.hidden_tag() }}
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                    {{ form.first_name(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', placeholder='Candidate first name') }}
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                    {{ form.last_name(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', placeholder='Candidate last name') }}
+                  </div>
                   <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Interview Title</label>
-                    {{ form.title(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', placeholder='e.g. Senior Backend Engineer Interview') }}
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    {{ form.email(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', placeholder='candidate@example.com', autocomplete='email') }}
                   </div>
-
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Temporary Password</label>
+                    {{ form.password(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', placeholder='Set an initial password', autocomplete='new-password') }}
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                    {{ form.confirm_password(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', placeholder='Re-enter the password', autocomplete='new-password') }}
+                  </div>
                   <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    {{ form.description(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', rows="5", placeholder='Describe the interview focus, expectations, or agenda...') }}
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Duration</label>
-                    {{ form.duration_minutes(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black') }}
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Scheduled Date</label>
-                    {{ form.scheduled_date(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black') }}
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Scheduled Time</label>
-                    {{ form.scheduled_time(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black') }}
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Resume URL (optional)</label>
+                    {{ form.resume_url(class_='w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black', placeholder='https://...') }}
                   </div>
                 </div>
 
                 <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
                   <a
-                    href="{{ url_for('admin.dashboard') }}"
+                    href="{{ url_for('admin.manage_assignments') }}"
                     class="px-5 py-3 text-sm font-medium text-gray-600 hover:text-black transition-colors"
                   >
                     Cancel
@@ -196,11 +196,31 @@
                     type="submit"
                     class="inline-flex items-center bg-black text-white px-6 py-3 rounded-button hover:bg-gray-800 transition-colors text-sm font-medium"
                   >
-                    <i class="ri-save-3-line mr-2"></i>
-                    Save Interview
+                    <i class="ri-user-add-line mr-2"></i>
+                    Create Candidate
                   </button>
                 </div>
               </form>
+            </div>
+
+            <div class="mt-8 bg-white rounded-2xl border border-gray-200 shadow-sm">
+              <div class="px-8 py-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-black">Recently Added Candidates</h3>
+                <p class="text-sm text-gray-500">Review the latest profiles you've created.</p>
+              </div>
+              <div class="p-8 space-y-4 max-h-72 overflow-y-auto">
+                {% for candidate in recent_candidates %}
+                  <div class="flex items-start justify-between border border-gray-200 rounded-lg px-4 py-3">
+                    <div>
+                      <p class="text-sm font-medium text-black">{{ candidate.get_full_name() }}</p>
+                      <p class="text-xs text-gray-500">{{ candidate.email }}</p>
+                    </div>
+                    <span class="text-xs text-gray-400">Added {{ candidate.created_at.strftime('%b %d, %Y') }}</span>
+                  </div>
+                {% else %}
+                  <p class="text-sm text-gray-500">No candidates created yet.</p>
+                {% endfor %}
+              </div>
             </div>
           </div>
         </main>
@@ -208,5 +228,3 @@
     </div>
   </body>
 </html>
-
-
