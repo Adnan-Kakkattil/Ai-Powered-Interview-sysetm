@@ -4,7 +4,7 @@ from flask import flash, redirect, render_template, url_for
 from flask_login import current_user, login_required
 
 from forms import CreateInterviewForm, InviteCandidateForm
-from models import Interview, User, db
+from models import Interview, InterviewAssignment, User, db
 from routes import admin_bp
 from services import interview_service
 
@@ -20,7 +20,26 @@ def require_admin():
 @admin_bp.route("/dashboard")
 def dashboard():
     interviews = Interview.query.order_by(Interview.created_at.desc()).limit(20).all()
-    return render_template("admin/dashboard.html", interviews=interviews)
+
+    stats = {
+        "ongoing": Interview.query.filter_by(status="in_progress").count(),
+        "upcoming": Interview.query.filter_by(status="scheduled").count(),
+        "completed": Interview.query.filter_by(status="completed").count(),
+        "total_candidates": User.query.filter_by(role="candidate").count(),
+    }
+
+    recent_assignments = (
+        InterviewAssignment.query.order_by(InterviewAssignment.invited_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    return render_template(
+        "admin/dashboard.html",
+        interviews=interviews,
+        stats=stats,
+        recent_assignments=recent_assignments,
+    )
 
 
 @admin_bp.route("/interviews/new", methods=["GET", "POST"])
