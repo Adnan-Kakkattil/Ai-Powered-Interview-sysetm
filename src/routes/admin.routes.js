@@ -3,6 +3,8 @@ const { body, param } = require('express-validator');
 const {
   createCandidate,
   listCandidates,
+  updateCandidate,
+  archiveCandidate,
   createLot,
   updateLot,
   addCandidatesToLot,
@@ -23,11 +25,34 @@ router.post(
     body('email').isEmail().withMessage('Valid email is required'),
     body('password').optional().isLength({ min: 8 }),
     body('resumeUrl').optional().isURL(),
+    body('skills').optional().isArray(),
+    body('notes').optional().isString(),
   ],
   createCandidate,
 );
 
 router.get('/candidates', listCandidates);
+
+router.patch(
+  '/candidates/:candidateId',
+  [
+    param('candidateId').isMongoId(),
+    body('name').optional().isString().notEmpty(),
+    body('email').optional().isEmail(),
+    body('password').optional().isLength({ min: 8 }),
+    body('resumeUrl').optional().isURL(),
+    body('skills').optional().isArray(),
+    body('status').optional().isIn(['active', 'inactive', 'invited']),
+    body('notes').optional().isString(),
+  ],
+  updateCandidate,
+);
+
+router.post(
+  '/candidates/:candidateId/archive',
+  [param('candidateId').isMongoId()],
+  archiveCandidate,
+);
 
 router.post(
   '/lots',
@@ -56,7 +81,7 @@ router.post(
   '/interviews',
   [
     body('candidateId').isMongoId(),
-    body('interviewerId').isMongoId(),
+    body('interviewerId').optional().isMongoId(),
     body('lotId').optional().isMongoId(),
     body('codingTaskId').optional().isMongoId(),
     body('meetingRoomId').notEmpty(),
