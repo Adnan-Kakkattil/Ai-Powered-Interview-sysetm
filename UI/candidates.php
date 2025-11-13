@@ -6,7 +6,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/api.php';
 require_once __DIR__ . '/includes/helpers.php';
 
-requireAuth();
+requireRole(['admin']);
 
 $currentUser = currentUser();
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/api.php';
+require_once __DIR__ . '/includes/helpers.php';
 
 $errorMessage = null;
 
@@ -18,8 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($response['status'] === 200 && isset($response['data']['token'])) {
         setAuthToken($response['data']['token']);
-        $_SESSION['user'] = $response['data']['user'] ?? null;
-        redirect('dashboard.php');
+        $_SESSION['user'] = $response['data']['user'] ?? [];
+        $role = $_SESSION['user']['role'] ?? null;
+        redirect(userHomePath($role));
     } else {
         $errorMessage = $response['error'] ?? 'Unable to login. Check credentials.';
     }

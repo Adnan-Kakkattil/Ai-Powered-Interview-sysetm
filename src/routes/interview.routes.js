@@ -4,6 +4,8 @@ const {
   startInterview,
   endInterview,
   getInterviewLogs,
+  updateInterviewSchedule,
+  cancelInterview,
 } = require('../controllers/interview.controller');
 const { authenticate, authorize } = require('../middlewares/auth');
 const { USER_ROLES } = require('../models/User');
@@ -33,6 +35,28 @@ router.get(
   param('interviewId').isMongoId(),
   authorize(USER_ROLES.ADMIN),
   getInterviewLogs,
+);
+
+router.patch(
+  '/:interviewId',
+  [
+    param('interviewId').isMongoId(),
+    authorize(USER_ROLES.ADMIN),
+    body('schedule.start').optional().isISO8601(),
+    body('schedule.end').optional().isISO8601(),
+    body('meetingRoomId').optional().notEmpty(),
+    body('status').optional().isIn(['scheduled', 'live', 'completed', 'cancelled']),
+    body('codingTaskId').optional().isMongoId(),
+    body('lotId').optional().isMongoId(),
+  ],
+  updateInterviewSchedule,
+);
+
+router.post(
+  '/:interviewId/cancel',
+  param('interviewId').isMongoId(),
+  authorize(USER_ROLES.ADMIN),
+  cancelInterview,
 );
 
 module.exports = router;

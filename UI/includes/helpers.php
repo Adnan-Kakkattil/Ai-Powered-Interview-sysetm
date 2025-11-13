@@ -13,7 +13,25 @@ function requireAuth(): void
 
 function currentUser(): array
 {
-    return $_SESSION['user'] ?? ['name' => 'Admin'];
+    return $_SESSION['user'] ?? [];
+}
+
+function userHomePath(?string $role): string
+{
+    return match ($role) {
+        'candidate' => 'candidate_dashboard.php',
+        'admin' => 'dashboard.php',
+        default => 'login.php',
+    };
+}
+
+function requireRole(array $roles): void
+{
+    requireAuth();
+    $role = currentUser()['role'] ?? null;
+    if (!in_array($role, $roles, true)) {
+        redirect(userHomePath($role));
+    }
 }
 
 function formatDateTime(?string $isoString, string $format = 'M d, Y h:i A'): string

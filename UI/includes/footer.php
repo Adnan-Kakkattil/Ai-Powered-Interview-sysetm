@@ -2,9 +2,9 @@
         <div class="max-w-7xl mx-auto px-6">
             <div class="grid md:grid-cols-4 gap-8">
                 <div class="space-y-4">
-                    <div class="font-['Pacifico'] text-xl">logo</div>
+                    <div class="text-xl font-semibold tracking-wide">SmartHire</div>
                     <p class="text-gray-400 text-sm">
-                        Revolutionizing the interview process with AI-powered technology and real-time analytics.
+                        Orchestrating interviews with AI-assisted insights, real-time collaboration, and seamless candidate experiences.
                     </p>
                     <div class="flex space-x-4">
                         <div class="w-8 h-8 flex items-center justify-center">

@@ -64,6 +64,14 @@ const dispatchNotification = async (notification) => {
 };
 
 const queueNotification = async (notificationId, queue) => {
+  if (!queue) {
+    await Notification.findByIdAndUpdate(notificationId, {
+      status: 'pending',
+      lastError: 'Notification queue unavailable',
+    });
+    return;
+  }
+
   await Notification.findByIdAndUpdate(notificationId, { status: 'queued' });
   await queue.add('dispatch', { notificationId });
 };
