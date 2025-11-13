@@ -7,12 +7,29 @@ const registerInterviewNamespace = (io) => {
     socket.on('joinRoom', ({ interviewId, role }) => {
       if (!interviewId) return;
       socket.join(interviewId);
-      interviewNamespace.to(interviewId).emit('userJoined', { socketId: socket.id, role });
+      interviewNamespace
+        .to(interviewId)
+        .emit('userJoined', { socketId: socket.id, role });
     });
 
     socket.on('signal', ({ interviewId, payload }) => {
       if (!interviewId) return;
       socket.to(interviewId).emit('signal', { socketId: socket.id, payload });
+    });
+
+    socket.on('offer', ({ interviewId, payload }) => {
+      if (!interviewId || !payload) return;
+      socket.to(interviewId).emit('offer', { socketId: socket.id, payload });
+    });
+
+    socket.on('answer', ({ interviewId, payload }) => {
+      if (!interviewId || !payload) return;
+      socket.to(interviewId).emit('answer', { socketId: socket.id, payload });
+    });
+
+    socket.on('iceCandidate', ({ interviewId, payload }) => {
+      if (!interviewId || !payload) return;
+      socket.to(interviewId).emit('iceCandidate', { socketId: socket.id, payload });
     });
 
     socket.on('codeUpdate', ({ interviewId, codeSnapshot }) => {
@@ -38,6 +55,16 @@ const registerInterviewNamespace = (io) => {
       if (!interviewId) return;
       socket.leave(interviewId);
       interviewNamespace.to(interviewId).emit('userLeft', { socketId: socket.id });
+    });
+
+    socket.on('disconnect', (reason) => {
+      const rooms = [...socket.rooms].filter((room) => room !== socket.id);
+      rooms.forEach((room) => {
+        interviewNamespace.to(room).emit('userLeft', {
+          socketId: socket.id,
+          reason,
+        });
+      });
     });
   });
 };

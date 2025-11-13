@@ -13,9 +13,12 @@ $currentUser = currentUser();
 $formError = null;
 $formSuccess = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$formAction = $_POST['action'] ?? 'create';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAction === 'create') {
     $candidateId = $_POST['candidate_id'] ?? '';
-    $meetingRoomId = $_POST['meeting_room_id'] ?: generateMeetingRoomId();
+    $meetingRoomInput = $_POST['meeting_room_id'] ?? '';
+    $meetingRoomId = $meetingRoomInput !== '' ? $meetingRoomInput : generateMeetingRoomId();
     $startDate = $_POST['start_date'] ?? '';
     $startTime = $_POST['start_time'] ?? '';
     $durationMinutes = (int) ($_POST['duration'] ?? 60);
@@ -72,6 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $formSuccess = 'Interview cancelled.';
         } else {
             $formError = $response['error'] ?? 'Unable to cancel interview.';
+        }
+    } elseif ($action === 'start') {
+        $response = apiRequest("/interviews/{$interviewId}/start", 'POST');
+        if ($response['status'] === 200) {
+            $formSuccess = 'Interview marked as live.';
+        } else {
+            $formError = $response['error'] ?? 'Unable to start interview.';
         }
     } elseif ($action === 'update') {
         $startDate = $_POST['start_date'] ?? '';
@@ -228,11 +238,22 @@ require __DIR__ . '/includes/header.php';
                                         'lotId' => $interview['lot']['_id'] ?? $interview['lotId'] ?? '',
                                     ];
                                     $interviewJson = htmlspecialchars(json_encode($interviewData), ENT_QUOTES, 'UTF-8');
+                                    $canStart = $status === 'scheduled';
+                                    $interviewId = htmlspecialchars($interviewData['id']);
+                                    $joinHref = "interviewer_interview_room.php?interview_id=" . urlencode($interviewData['id']);
                                 ?>
-                                <td class="px-6 py-4 space-x-2">
+                                <td class="px-6 py-4 space-x-3">
                                     <a href="#" data-action="view-interview" data-interview="<?= $interviewJson ?>" class="text-primary hover:underline text-xs">View</a>
                                     <a href="#" data-action="edit-interview" data-interview="<?= $interviewJson ?>" class="text-gray-500 hover:underline text-xs">Reschedule</a>
                                     <a href="#" data-action="cancel-interview" data-interview="<?= $interviewJson ?>" class="text-red-500 hover:underline text-xs">Cancel</a>
+                                    <a href="<?= htmlspecialchars($joinHref) ?>" class="text-indigo-600 hover:underline text-xs font-semibold">Join</a>
+                                    <?php if ($canStart): ?>
+                                        <form method="POST" class="inline">
+                                            <input type="hidden" name="action" value="start">
+                                            <input type="hidden" name="interview_id" value="<?= $interviewId ?>">
+                                            <button type="submit" class="text-emerald-600 hover:underline text-xs font-semibold">Start</button>
+                                        </form>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

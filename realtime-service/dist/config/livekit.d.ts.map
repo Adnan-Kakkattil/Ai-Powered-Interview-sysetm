@@ -1,0 +1,1 @@
+{"version":3,"file":"livekit.d.ts","sourceRoot":"","sources":["../../src/config/livekit.ts"],"names":[],"mappings":"AAGA,KAAK,mBAAmB,GAAG;IACzB,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,CAAC,EAAE,MAAM,CAAC,MAAM,EAAE,OAAO,CAAC,GAAG,MAAM,CAAC;IAC5C,GAAG,CAAC,EAAE,MAAM,CAAC;CACd,CAAC;AAEF,eAAO,MAAM,eAAe,GAAI,wCAK7B,mBAAmB,oBAgBrB,CAAC"}

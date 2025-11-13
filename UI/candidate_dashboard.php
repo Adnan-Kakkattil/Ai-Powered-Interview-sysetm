@@ -51,12 +51,13 @@ require __DIR__ . '/includes/header.php';
                 <?php
                     $startLabel = formatDateTime($upcomingInterview['schedule']['start'] ?? null);
                     $roomId = $upcomingInterview['meetingRoomId'] ?? 'N/A';
+                    $upcomingId = (string)($upcomingInterview['_id'] ?? $upcomingInterview['id'] ?? '');
                 ?>
                 <div class="bg-white border border-blue-100 shadow-sm rounded-2xl px-6 py-4 text-sm text-blue-700 max-w-sm">
                     <div class="font-semibold text-blue-800 mb-1">Next interview</div>
                     <div class="mb-1"><?= htmlspecialchars($startLabel) ?></div>
                     <div class="text-xs text-blue-600 mb-3">Room ID: <?= htmlspecialchars($roomId) ?></div>
-                    <a href="#" class="inline-flex items-center px-4 py-2 bg-primary text-white text-xs font-semibold rounded-button shadow hover:bg-brand-700 transition">
+                    <a href="candidate_interview_room.php?interview_id=<?= urlencode($upcomingId) ?>" class="inline-flex items-center px-4 py-2 bg-primary text-white text-xs font-semibold rounded-button shadow hover:bg-brand-700 transition">
                         Join Room
                         <i class="ri-arrow-right-up-line ml-2 text-sm"></i>
                     </a>
@@ -170,6 +171,8 @@ require __DIR__ . '/includes/header.php';
                                     };
                                     $meetingRoomId = $interview['meetingRoomId'] ?? 'N/A';
                                     $interviewerName = $interview['interviewer']['name'] ?? 'Hiring Team';
+                                    $interviewId = (string)($interview['_id'] ?? $interview['id'] ?? '');
+                                    $joinHref = "candidate_interview_room.php?interview_id=" . urlencode($interviewId);
                                 ?>
                                 <tr class="hover:bg-gray-50/60 transition">
                                     <td class="px-6 py-4">
@@ -189,7 +192,7 @@ require __DIR__ . '/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        <a href="#" class="inline-flex items-center px-3 py-1.5 rounded-button text-xs font-semibold bg-primary text-white shadow hover:bg-brand-700 transition">
+                                        <a href="<?= htmlspecialchars($joinHref) ?>" class="inline-flex items-center px-3 py-1.5 rounded-button text-xs font-semibold bg-primary text-white shadow hover:bg-brand-700 transition">
                                             Join Room
                                         </a>
                                     </td>
