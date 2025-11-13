@@ -1,7 +1,7 @@
 import os
 
-from flask import Flask
-from flask_login import LoginManager
+from flask import Flask, redirect, url_for
+from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
 
 from config import Config, config_by_name
@@ -39,7 +39,12 @@ def create_app(config_name: str | None = None) -> Flask:
 
     @app.route("/")
     def index():
-        return "AI Powered Interview System API"
+        if current_user.is_authenticated:
+            if current_user.is_admin:
+                return redirect(url_for("admin.dashboard"))
+            if current_user.is_candidate:
+                return redirect(url_for("candidate.dashboard"))
+        return redirect(url_for("auth.login"))
 
     return app
 
