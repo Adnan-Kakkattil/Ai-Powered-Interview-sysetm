@@ -1,1 +1,0 @@
-{"version":3,"file":"interviewService.d.ts","sourceRoot":"","sources":["../../src/services/interviewService.ts"],"names":[],"mappings":"AAIA,MAAM,MAAM,WAAW,GAAG;IACxB,WAAW,EAAE,MAAM,CAAC;IACpB,aAAa,EAAE,MAAM,CAAC;IACtB,IAAI,EAAE,WAAW,GAAG,aAAa,CAAC;IAClC,WAAW,EAAE,MAAM,CAAC;CACrB,CAAC;AAEF,eAAO,MAAM,gBAAgB;2EAC4C,WAAW;;;;CAYnF,CAAC"}

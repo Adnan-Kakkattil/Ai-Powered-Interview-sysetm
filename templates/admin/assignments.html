@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Assignments{% endblock %}
+
+{% block content %}
+  <h1>Assign Interviews</h1>
+  <form method="post">
+    {{ form.hidden_tag() }}
+    <div>
+      {{ form.interview_id.label }} {{ form.interview_id() }}
+      {% for error in form.interview_id.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </div>
+    <div>
+      {{ form.candidate_ids.label }} {{ form.candidate_ids(size=8) }}
+      {% for error in form.candidate_ids.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </div>
+    <button type="submit">Assign</button>
+  </form>
+
+  <h2>Existing Interviews</h2>
+  <ul>
+    {% for interview in interviews %}
+      <li>
+        {{ interview.title }} -
+        {% if interview.scheduled_at %}{{ interview.scheduled_at }}{% else %}No date{% endif %}
+      </li>
+    {% else %}
+      <li>No interviews available.</li>
+    {% endfor %}
+  </ul>
+
+  <h2>Candidates</h2>
+  <ul>
+    {% for candidate in candidates %}
+      <li>{{ candidate.get_full_name() }} ({{ candidate.email }})</li>
+    {% else %}
+      <li>No candidates available.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
+
+

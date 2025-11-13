@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Interview Session{% endblock %}
+
+{% block head %}
+  <script src="{{ url_for('static', filename='vendor/monaco/loader.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/interview.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+  <h1>{{ assignment.interview.title }}</h1>
+  <p>Status: {{ assignment.status }}</p>
+  <section class="interview-layout">
+    <div class="editor-pane">
+      <div id="editor" data-assignment-id="{{ assignment.id }}"></div>
+      <button id="submit-code">Submit Code</button>
+    </div>
+    <div class="monitoring-pane">
+      <video id="eye-feed" autoplay muted></video>
+      <canvas id="eye-overlay"></canvas>
+      <div id="eye-status">Initializing eye detection...</div>
+    </div>
+  </section>
+{% endblock %}
+
+

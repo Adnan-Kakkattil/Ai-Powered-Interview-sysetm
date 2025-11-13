@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+  <h1>Admin Dashboard</h1>
+  <p><a href="{{ url_for('admin.create_interview') }}">Create Interview</a></p>
+  <p><a href="{{ url_for('admin.manage_assignments') }}">Manage Assignments</a></p>
+
+  <h2>Recent Interviews</h2>
+  <ul>
+    {% for interview in interviews %}
+      <li>
+        <strong>{{ interview.title }}</strong>
+        {% if interview.scheduled_at %} - {{ interview.scheduled_at }}{% endif %}
+        ({{ interview.status }})
+      </li>
+    {% else %}
+      <li>No interviews yet.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
+
+

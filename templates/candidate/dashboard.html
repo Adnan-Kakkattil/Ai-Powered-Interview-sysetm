@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate Dashboard{% endblock %}
+
+{% block content %}
+  <h1>My Interviews</h1>
+  <ul>
+    {% for assignment in assignments %}
+      <li>
+        <strong>{{ assignment.interview.title }}</strong>
+        <span>Status: {{ assignment.status }}</span>
+        <a href="{{ url_for('candidate.interview_session', assignment_id=assignment.id) }}">Open</a>
+      </li>
+    {% else %}
+      <li>No interviews assigned.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
+
+

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Create Interview{% endblock %}
+
+{% block content %}
+  <h1>Create Interview</h1>
+  <form method="post">
+    {{ form.hidden_tag() }}
+    <div>
+      {{ form.title.label }} {{ form.title(size=40) }}
+      {% for error in form.title.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </div>
+    <div>
+      {{ form.description.label }} {{ form.description(rows=4, cols=40) }}
+      {% for error in form.description.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </div>
+    <div>
+      {{ form.duration_minutes.label }} {{ form.duration_minutes() }}
+      {% for error in form.duration_minutes.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </div>
+    <div>
+      {{ form.scheduled_date.label }} {{ form.scheduled_date() }}
+      {% for error in form.scheduled_date.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </div>
+    <div>
+      {{ form.scheduled_time.label }} {{ form.scheduled_time() }}
+      {% for error in form.scheduled_time.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </div>
+    <button type="submit">Save Interview</button>
+  </form>
+{% endblock %}
+
+

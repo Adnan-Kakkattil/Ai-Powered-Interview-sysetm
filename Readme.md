@@ -1,200 +1,108 @@
-## Smart Interview Management Backend
+# AI Powered Interview System
 
-Node.js/Express backend for a smart interview platform that combines live interviews, real-time coding challenges, and behavioral analytics. The service manages candidates, interview scheduling, lot selection, notifications, and Socket.io signaling to power the video/coding experience.
+Flask-based platform for conducting remote coding interviews with real-time monitoring, role-based administration, and MySQL persistence.
 
----
+## Features
 
-### Highlights
+- Admin, candidate, and superadmin roles
+- Admin dashboard to create interviews and assign candidates
+- Candidate portal with embedded code editor (Monaco placeholder) and webcam eye-tracking hook
+- Audit logs for interview activity, code submissions, and optional snapshot storage
+- Bootstrap script to initialize the database and create the first superadmin account
 
-- **Role-based access**: JWT-protected endpoints for admins, interviewers, and candidates.
-- **Candidate pipeline**: Manage pools, track status, assign to lots, and schedule interviews.
-- **Interview lifecycle**: Persistent records, coding task assignment, WebRTC room IDs, and session logs.
-- **Real-time integrations**: Socket.io namespace ready for interview signaling, code collaboration, chat, and eye-tracking telemetry.
-- **Notifications**: SendGrid email and Twilio SMS delivery with Bull queue for retries and tracking.
-- **Observability**: Structured error handling, health check endpoint, and session logging for audit.
-- **Developer tooling**: ESLint (flat config) and Prettier for code consistency, nodemon for hot reload.
+## Tech Stack
 
----
+- Python 3.11+
+- Flask, Flask-Login, Flask-Migrate, SQLAlchemy
+- MySQL 8 (or compatible)
+- WTForms for server-side validation
+- Monaco editor (front-end asset placeholder)
 
-### Core Modules
+## Getting Started
 
-- `auth`: Registration/login for admins, JWT issuance, password hashing with bcrypt.
-- `admin`: Candidate CRUD, lot management, interview scheduling, notification queuing.
-- `candidate`: Profile maintenance, interview list retrieval, status updates.
-- `interview`: Start/end session hooks, feedback capture, session log retrieval.
-- `notification`: SendGrid/Twilio dispatch via Bull queue (`notification-queue`).
-- `sockets`: `/interview` namespace for WebRTC signaling, collaborative coding, and telemetry.
-- `models`: MongoDB schemas for users, candidate profiles, lots, coding tasks, interviews, notifications, session logs, and eye-tracking events.
+1. **Clone the repository**
 
----
-
-### Project Structure
-
-```
-src/
-  app.js                  Express app setup
-  index.js                Server bootstrap + Socket.io + job loading
-  config/db.js            MongoDB connection helper
-  controllers/            Route handlers (auth/admin/candidate/interview)
-  jobs/                   Bull queue definitions (notification)
-  middlewares/            Auth + error handling middleware
-  models/                 Mongoose schemas
-  routes/                 Express route definitions
-  services/               External integrations (notifications)
-  sockets/                Socket.io namespaces
-  utils/                  JWT + password helpers
-```
-
----
-
-### Requirements
-
-- Node.js 18+
-- npm 9+
-- MongoDB Atlas (connection string provided)
-- Redis (local or hosted) for Bull queue processing
-- Optional: SendGrid/Twilio credentials for live notifications
-
----
-
-### Environment Configuration
-
-Copy `env.example` to `.env` and update as needed:
-
-```
-NODE_ENV=development
-PORT=5000
-
-MONGO_URI=your-mongodb-uri
-MONGO_DB_NAME=smart_interview
-
-JWT_SECRET=your_jwt_secret
-JWT_EXPIRES_IN=1d
-BCRYPT_SALT_ROUNDS=10
-
-CLIENT_ORIGIN=http://localhost:3000
-
-SENDGRID_API_KEY=...
-EMAIL_FROM=...
-TWILIO_ACCOUNT_SID=...
-TWILIO_AUTH_TOKEN=...
-TWILIO_FROM_NUMBER=...
-
-REDIS_URL=redis://127.0.0.1:6379
-```
-
-> For local testing without SendGrid/Twilio, leave credentials blank; notification jobs will fail gracefully.
-
----
-
-### Installation
-
-```bash
-npm install
-```
-
-Install Redis locally or point `REDIS_URL` to a managed instance (e.g., Upstash, Redis Cloud).
-
----
-
-### Scripts
-
-| Script          | Description                                   |
-|-----------------|-----------------------------------------------|
-| `npm run dev`   | Start development server with nodemon         |
-| `npm start`     | Start server in production mode               |
-| `npm run lint`  | Run ESLint across `src/**/*.js`               |
-| `npm run format`| Format code with Prettier                     |
-
----
-
-### Running Locally
-
-1. Ensure `.env` is configured.
-2. Start Redis (if running locally):
    ```bash
-   redis-server
+   git clone https://github.com/your-org/ai-powered-interview-system.git
+   cd ai-powered-interview-system
    ```
-3. Launch the backend:
+
+2. **Create and activate a virtual environment**
+
    ```bash
-   npm run dev
+   python -m venv .venv
+   .venv\Scripts\activate  # Windows
+   # source .venv/bin/activate  # Linux / macOS
    ```
-4. Verify health:
+
+3. **Install dependencies**
+
+   ```bash
+   pip install -r requirements.txt
    ```
-   GET http://localhost:5000/health
-   → {"status":"ok"}
+
+4. **Configure environment variables**
+
+   Create a `.env` file (or set system environment variables):
+
    ```
-5. Bull queue listens automatically when the server boots (`notification-queue`). Monitor Redis for job entries if notifications are queued.
+   FLASK_CONFIG=development
+   FLASK_SECRET_KEY=your-secret
+   DB_USER=root
+   DB_PASSWORD=yourpassword
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_NAME=ai_interview_system
+   ```
 
----
+5. **Create the database schema**
 
-### API Overview
+   ```bash
+   mysql -u root -p < schema.sql
+   ```
 
-All routes under `/api`.
+   or run the setup command:
 
-**Auth**
-- `POST /api/auth/register-admin` — bootstrap an admin account.
-- `POST /api/auth/login` — email/password login, returns JWT.
+   ```bash
+   python setup.py init-db
+   ```
 
-**Admin**
-- `POST /api/admin/candidates` — create candidate + profile.
-- `GET /api/admin/candidates` — list candidates with profiles.
-- `POST /api/admin/lots` — create lot.
-- `PATCH /api/admin/lots/:lotId` — update lot metadata.
-- `POST /api/admin/lots/:lotId/candidates` — add candidates to lot.
-- `POST /api/admin/interviews` — schedule interview (queues notification).
-- `GET /api/admin/interviews` — view scheduled/completed interviews.
+6. **Create the first superadmin**
 
-**Candidate**
-- `GET /api/candidates/me` — view profile.
-- `PUT /api/candidates/me` — update profile/resume/skills.
-- `GET /api/candidates/interviews` — list scheduled interviews.
+   ```bash
+   python setup.py create-superadmin
+   ```
 
-**Interview**
-- `POST /api/interviews/:interviewId/start` — mark session live.
-- `POST /api/interviews/:interviewId/end` — submit feedback/score.
-- `GET /api/interviews/:interviewId/logs` — retrieve session logs.
+7. **Run the development server**
 
-> Authenticated routes require `Authorization: Bearer <token>`. Candidate/admin routes enforce role-based access via middleware.
+   ```bash
+   flask --app app:create_app --debug run
+   ```
 
----
+   Visit `http://127.0.0.1:5000` in your browser.
 
-### Socket.io Namespace (`/interview`)
+## Project Structure
 
-Events:
-- `joinRoom` — join interview room; notifies others with `userJoined`.
-- `signal` — WebRTC SDP/ICE exchange.
-- `codeUpdate` — sync coding editor changes.
-- `eyeTracking` — broadcast telemetry metrics.
-- `chatMessage` — simple text chat.
-- `leaveRoom` — exit room; emits `userLeft`.
-
----
-
-### Notification Queue
-
-- Queue name: `notification-queue`
-- Processor: `src/jobs/notification.queue.js`
-- Supports email (SendGrid) and SMS (Twilio) dispatch.
-- Retries failed jobs up to 3 times with exponential backoff.
-
-To observe jobs:
-```bash
-redis-cli LRANGE bull:notification-queue:wait 0 -1
+```
+.
+├─ app.py                # Flask app factory and entry point
+├─ config.py             # Configuration classes and helpers
+├─ models.py             # SQLAlchemy models
+├─ forms.py              # WTForms definitions
+├─ services/             # Business logic layer
+├─ routes/               # Blueprint route handlers
+├─ templates/            # Jinja templates
+├─ static/               # CSS/JS assets (Monaco placeholder)
+├─ schema.sql            # MySQL schema
+├─ setup.py              # CLI for bootstrap tasks
+└─ README.md
 ```
 
----
+## Next Steps
 
-### Roadmap
+- Integrate real eye-tracking SDK/ML service
+- Wire code submission endpoint and sandbox execution
+- Add REST API endpoints for SPA integrations
+- Implement unit/integration tests (pytest + coverage)
 
-- Integrate WebRTC signaling with real media servers (e.g., LiveKit).
-- Implement collaborative coding editor persistence & replay.
-- Add metrics dashboards for admins (live candidate engagement).
-- Expand automated tests (unit + integration) and CI pipeline.
-- Harden security (rate limiting, input sanitization, audit logging).
 
----
-
-### License
-
-ISC License. See `package.json` for details.
