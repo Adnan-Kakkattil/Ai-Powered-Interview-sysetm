@@ -26,7 +26,7 @@ def login():
         password = request.form['password']
         
         cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+        cursor.execute('SELECT * FROM users WHERE username = %s OR email = %s', (username, username))
         user = cursor.fetchone()
         
         if user and check_password_hash(user['password_hash'], password):

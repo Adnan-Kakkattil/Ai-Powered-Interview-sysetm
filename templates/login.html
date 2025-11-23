@@ -1,23 +1,377 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html lang="en">
 
-{% block title %}Login - AI Interview System{% endblock %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | NeuroHire</title>
 
-{% block content %}
-<div class="card" style="max-width: 400px; margin: 4rem auto;">
-    <h2>Login</h2>
-    <form method="post">
-        <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" required>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0a0a0a',
+                        secondary: '#121212',
+                        accent: '#8b5cf6', // Violet 500
+                        accentGlow: '#7c3aed', // Violet 600
+                        'neon-purple': '#a855f7',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #050505;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass-card-container {
+            background: rgba(20, 20, 25, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(139, 92, 246, 0.1);
+        }
+
+        .input-glass {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .input-glass:focus {
+            border-color: #a855f7;
+            background: rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+            outline: none;
+        }
+
+        /* Ambient Glows */
+        .purple-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.4;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Grid Background */
+        .grid-bg {
+            background-size: 50px 50px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        }
+
+        .social-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(168, 85, 247, 0.5);
+        }
+
+        .text-gradient-purple {
+            background: linear-gradient(135deg, #c084fc 0%, #6b21a8 100%);
+            < !DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Login | NeuroHire</title>< !-- Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>< !-- Google Fonts --><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+
+            rel="stylesheet">< !-- FontAwesome for Icons --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><script>tailwind.config= {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#0a0a0a',
+                                secondary: '#121212',
+                                accent: '#8b5cf6', // Violet 500
+                                accentGlow: '#7c3aed', // Violet 600
+                                'neon-purple': '#a855f7',
+                        }
+
+                        ,
+                        fontFamily: {
+                            sans: ['Inter', 'sans-serif'],
+                                display: ['Space Grotesk', 'sans-serif'],
+                        }
+
+                        ,
+                        animation: {
+                            'float': 'float 6s ease-in-out infinite',
+                                'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        }
+
+                        ,
+                        keyframes: {
+                            float: {
+                                '0%, 100%': {
+                                    transform: 'translateY(0)'
+                                }
+
+                                ,
+                                '50%': {
+                                    transform: 'translateY(-10px)'
+                                }
+
+                                ,
+                            }
+                        }
+                    }
+                }
+            }
+
+            </script><style>body {
+                background-color: #050505;
+                color: #ffffff;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 1rem;
+            }
+
+            /* Glassmorphism Utilities */
+            .glass-card-container {
+                background: rgba(20, 20, 25, 0.85);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(139, 92, 246, 0.1);
+            }
+
+            .input-glass {
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                transition: all 0.3s ease;
+            }
+
+            .input-glass:focus {
+                border-color: #a855f7;
+                background: rgba(0, 0, 0, 0.5);
+                box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+                outline: none;
+            }
+
+            /* Ambient Glows */
+            .purple-orb {
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(100px);
+                opacity: 0.4;
+                z-index: -1;
+                pointer-events: none;
+            }
+
+            /* Grid Background */
+            .grid-bg {
+                background-size: 50px 50px;
+                background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            }
+
+            .social-btn:hover {
+                background: rgba(255, 255, 255, 0.05);
+                border-color: rgba(168, 85, 247, 0.5);
+            }
+
+            .text-gradient-purple {
+                background: linear-gradient(135deg, #c084fc 0%, #6b21a8 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+    </style>
+</head>
+
+<body class="grid-bg relative overflow-hidden">
+
+    <!-- Ambient Background Orbs (Behind everything) -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="purple-orb bg-purple-900 w-[500px] h-[500px] top-[-10%] left-[-10%] animate-pulse-slow"></div>
+        <div class="purple-orb bg-indigo-900 w-[600px] h-[600px] bottom-[-20%] right-[-10%] opacity-30 animate-pulse-slow"
+            style="animation-delay: 2s;"></div>
+    </div>
+
+    <!-- Centralized Container -->
+    <div
+        class="w-full max-w-4xl glass-card-container rounded-3xl overflow-hidden flex flex-col md:flex-row relative z-10 animate-float shadow-2xl">
+
+        <!-- Left Side - Image & Branding -->
+        <div class="relative w-full md:w-1/2 h-64 md:h-auto bg-cover bg-center"
+            style="background-image: url('https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=800');">
+            <!-- Overlay -->
+            <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-purple-900/40 to-[#0a0a0a]/30"></div>
+
+            <!-- Content on Image -->
+            <div class="absolute inset-0 flex flex-col justify-between p-8 z-20">
+                <a href="{{ url_for('main.index') }}" class="inline-flex items-center gap-2 group w-fit">
+                    <div
+                        class="w-8 h-8 bg-gradient-to-tr from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20">
+                        <i class="fa-solid fa-brain text-white text-sm"></i>
+                    </div>
+                    <span class="font-display font-bold text-lg text-white tracking-tight">Neuro<span
+                            class="text-purple-400">Hire</span></span>
+                </a>
+
+                <div class="hidden md:block space-y-4">
+                    <div
+                        class="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-xs font-medium text-purple-200 mb-2">
+                        <i class="fa-solid fa-star text-yellow-400 mr-1"></i> Trusted by 500+ Companies
+                    </div>
+                    <h2 class="text-3xl font-display font-bold text-white leading-tight">
+                        Unlock the power of <br>
+                        <span class="text-gradient-purple">AI Assessment</span>
+                    </h2>
+                    <p class="text-gray-300 text-sm leading-relaxed opacity-90">
+                        Experience the next generation of technical interviews with real-time proctoring and deep
+                        analytics.
+                    </p>
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
+
+        <!-- Right Side - Login Form -->
+        <div class="w-full md:w-1/2 p-8 md:p-12 bg-black/40 backdrop-blur-xl relative">
+            <div class="relative z-10 space-y-6">
+
+                <!-- Header -->
+                <div class="text-center md:text-left">
+                    <h2 class="text-2xl font-display font-bold text-white">Welcome Back</h2>
+                    <p class="text-gray-400 text-sm mt-1">Please enter your details to sign in.</p>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-2 rounded-lg text-sm">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                <!-- Form -->
+                <form method="post" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5 ml-1">USERNAME OR EMAIL</label>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i
+                                    class="fa-regular fa-user text-gray-500 group-focus-within:text-purple-400 transition-colors"></i>
+                            </div>
+                            <input type="text" name="username"
+                                class="input-glass w-full rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-gray-600 font-sans text-sm"
+                                placeholder="username or email" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5 ml-1">
+                            <label class="block text-xs font-medium text-gray-400">PASSWORD</label>
+                            <a href="#" class="text-xs text-purple-400 hover:text-purple-300 transition-colors">Forgot
+                                password?</a>
+                        </div>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i
+                                    class="fa-solid fa-lock text-gray-500 group-focus-within:text-purple-400 transition-colors"></i>
+                            </div>
+                            <input type="password" name="password" id="password"
+                                class="input-glass w-full rounded-lg py-2.5 pl-10 pr-10 text-white placeholder-gray-600 font-sans text-sm"
+                                placeholder="••••••••" required>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                                onclick="togglePassword()">
+                                <i class="fa-regular fa-eye text-gray-600 hover:text-white transition-colors"
+                                    id="eye-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 rounded-lg shadow-lg shadow-purple-600/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 text-sm">
+                        Sign In
+                    </button>
+                </form>
+
+                <!-- Divider -->
+                <div class="relative my-6">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-700/50"></div>
+                    </div>
+                    <div class="relative flex justify-center text-xs uppercase">
+                        <span class="bg-transparent px-2 text-gray-500 backdrop-blur-md">Or</span>
+                    </div>
+                </div>
+
+                <!-- Social Login -->
+                <div class="grid grid-cols-2 gap-3">
+                    <button
+                        class="social-btn flex items-center justify-center gap-2 py-2 rounded-lg border border-gray-700 text-xs font-medium text-gray-300 transition-all bg-black/20 hover:bg-white/5">
+                        <i class="fa-brands fa-google"></i> Google
+                    </button>
+                    <button
+                        class="social-btn flex items-center justify-center gap-2 py-2 rounded-lg border border-gray-700 text-xs font-medium text-gray-300 transition-all bg-black/20 hover:bg-white/5">
+                        <i class="fa-brands fa-github"></i> GitHub
+                    </button>
+                </div>
+
+                <!-- Footer -->
+                <p class="text-center text-gray-500 text-xs mt-6">
+                    Don't have an account?
+                    <a href="{{ url_for('auth.setup_admin') }}"
+                        class="text-purple-400 hover:text-purple-300 font-medium transition-colors hover:underline">Setup
+                        Admin</a>
+                </p>
+            </div>
         </div>
-        <button type="submit" class="btn" style="width: 100%">Login</button>
-    </form>
-    <p style="margin-top: 1rem; text-align: center;">
-        <a href="{{ url_for('auth.setup_admin') }}">First time? Setup Admin</a>
-    </p>
-</div>
-{% endblock %}
+    </div>
+
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eye-icon');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+                eyeIcon.classList.add('text-purple-400');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+                eyeIcon.classList.remove('text-purple-400');
+            }
+        }
+    </script>
+</body>
+
+</html>
