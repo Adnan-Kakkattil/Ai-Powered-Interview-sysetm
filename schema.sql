@@ -19,7 +19,17 @@ CREATE TABLE IF NOT EXISTS interviews (
     candidate_id INT NOT NULL,
     status ENUM('scheduled', 'completed', 'cancelled') DEFAULT 'scheduled',
     meeting_link VARCHAR(255) UNIQUE NOT NULL,
+    code_content TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (interviewer_id) REFERENCES users(id),
     FOREIGN KEY (candidate_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    interview_id INT NOT NULL,
+    sender_username VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (interview_id) REFERENCES interviews(id)
 );

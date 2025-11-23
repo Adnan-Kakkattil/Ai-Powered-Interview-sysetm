@@ -34,23 +34,22 @@
 
                 <!-- Local Video (PIP) -->
                 <div class="local-video-wrapper">
-                    <video id="localVideo" autoplay muted playsinline></video>
+                    <video id="localVideo" autoplay playsinline muted></video>
                     <div class="participant-label">You ({{ role|title }})</div>
                 </div>
             </div>
 
-            <!-- Bottom Control Bar -->
+            <!-- Control Bar -->
             <div class="control-bar">
                 <div class="control-group">
-                    <button id="toggleMic" class="control-btn" title="Toggle Microphone">
-                        <span class="material-icons">mic</span>
-                    </button>
-                    <button id="toggleCam" class="control-btn" title="Toggle Camera">
-                        <span class="material-icons">videocam</span>
-                    </button>
-                    <button id="shareScreen" class="control-btn" title="Share Screen">
-                        <span class="material-icons">present_to_all</span>
-                    </button>
+                    <button id="toggleMic" class="control-btn" title="Toggle Microphone"><span
+                            class="material-icons">mic</span></button>
+                    <button id="toggleCam" class="control-btn" title="Toggle Camera"><span
+                            class="material-icons">videocam</span></button>
+                    <button id="toggleChat" class="control-btn" title="Chat"><span
+                            class="material-icons">chat</span></button>
+                    <button id="shareScreen" class="control-btn" title="Share Screen"><span
+                            class="material-icons">present_to_all</span></button>
 
                     {% if role == 'interviewer' %}
                     <button class="control-btn btn-end-call" title="End Interview" onclick="confirmEndCall()">
@@ -63,6 +62,30 @@
                     {% endif %}
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Chat Sidebar -->
+    <div id="chatSidebar" class="chat-sidebar">
+        <div class="chat-header">
+            <span>Chat</span>
+            <button id="closeChat" class="icon-btn"><span class="material-icons">close</span></button>
+        </div>
+        <div id="chatMessages" class="chat-messages">
+            {% for msg in chat_history %}
+            <div class="chat-message {% if msg.sender_username == session.name %}self{% else %}remote{% endif %}">
+                <div class="message-meta">
+                    <span class="message-user">{% if msg.sender_username == session.name %}You{% else %}{{
+                        msg.sender_username }}{% endif %}</span>
+                    <span class="message-time">{{ msg.timestamp }}</span>
+                </div>
+                <div class="message-content">{{ msg.message }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Send a message...">
+            <button id="sendChat" class="icon-btn send-btn"><span class="material-icons">send</span></button>
         </div>
     </div>
 
@@ -91,6 +114,7 @@
         height: calc(100vh - 60px);
         width: 100%;
         background-color: #202124;
+        position: relative;
     }
 
     /* Editor Panel */
@@ -300,6 +324,113 @@
             opacity: 0;
         }
     }
+
+    /* Chat Sidebar */
+    .chat-sidebar {
+        position: absolute;
+        top: 0;
+        right: -320px;
+        /* Hidden by default */
+        width: 320px;
+        height: 100%;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        transition: right 0.3s ease;
+        z-index: 200;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .chat-sidebar.open {
+        right: 0;
+    }
+
+    .chat-header {
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .chat-messages {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .chat-message {
+        max-width: 85%;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    .chat-message.self {
+        align-self: flex-end;
+        background: #e3f2fd;
+        color: #1565c0;
+        border-bottom-right-radius: 2px;
+    }
+
+    .chat-message.remote {
+        align-self: flex-start;
+        background: #fff;
+        color: #333;
+        border: 1px solid #eee;
+        border-bottom-left-radius: 2px;
+    }
+
+    .message-meta {
+        font-size: 10px;
+        margin-bottom: 4px;
+        opacity: 0.7;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .chat-input-area {
+        padding: 15px;
+        border-top: 1px solid #eee;
+        display: flex;
+        gap: 10px;
+        background: #fff;
+    }
+
+    #chatInput {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        outline: none;
+    }
+
+    .icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        color: #5f6368;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .icon-btn:hover {
+        background: #f1f3f4;
+        border-radius: 50%;
+    }
+
+    .send-btn {
+        color: #1a73e8;
+    }
 </style>
 {% endblock %}
 
@@ -312,32 +443,49 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
 <script src="{{ url_for('static', filename='js/webrtc.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 <script>
+    // Pre-fill code if exists
+    const savedCode = `{{ interview.code_content|default('# Write your code here...', true)|safe }}`;
+    if (editor && savedCode) {
+        editor.setValue(savedCode);
+    }
+
+    // Scroll chat to bottom
+    const chatMsgs = document.getElementById('chatMessages');
+    if (chatMsgs) {
+        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    }
+
     // Update button states based on tracks
     const micBtn = document.getElementById('toggleMic');
     const camBtn = document.getElementById('toggleCam');
 
-    micBtn.addEventListener('click', () => {
-        const icon = micBtn.querySelector('.material-icons');
-        if (micBtn.classList.contains('active-off')) {
-            micBtn.classList.remove('active-off');
-            icon.textContent = 'mic';
-        } else {
-            micBtn.classList.add('active-off');
-            icon.textContent = 'mic_off';
-        }
-    });
+    if (micBtn) {
+        micBtn.addEventListener('click', () => {
+            const icon = micBtn.querySelector('.material-icons');
+            if (micBtn.classList.contains('active-off')) {
+                micBtn.classList.remove('active-off');
+                icon.textContent = 'mic';
+            } else {
+                micBtn.classList.add('active-off');
+                icon.textContent = 'mic_off';
+            }
+        });
+    }
 
-    camBtn.addEventListener('click', () => {
-        const icon = camBtn.querySelector('.material-icons');
-        if (camBtn.classList.contains('active-off')) {
-            camBtn.classList.remove('active-off');
-            icon.textContent = 'videocam';
-        } else {
-            camBtn.classList.add('active-off');
-            icon.textContent = 'videocam_off';
-        }
-    });
+    if (camBtn) {
+        camBtn.addEventListener('click', () => {
+            const icon = camBtn.querySelector('.material-icons');
+            if (camBtn.classList.contains('active-off')) {
+                camBtn.classList.remove('active-off');
+                icon.textContent = 'videocam';
+            } else {
+                camBtn.classList.add('active-off');
+                icon.textContent = 'videocam_off';
+            }
+        });
+    }
 
     function confirmEndCall() {
         if (confirm("Are you sure you want to end the interview?")) {

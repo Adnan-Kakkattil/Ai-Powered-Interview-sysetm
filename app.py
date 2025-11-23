@@ -60,8 +60,41 @@ def on_leave(data):
 def on_code_change(data):
     room = data['room']
     code = data['code']
+    
+    # Save code to DB
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute('UPDATE interviews SET code_content = %s WHERE meeting_link = %s', (code, room))
+        mysql.connection.commit()
+        cursor.close()
+    except Exception as e:
+        print(f"Error saving code: {e}")
+        
     # Broadcast code to everyone else in the room
     emit('code-update', {'code': code}, room=room, include_self=False)
+
+@socketio.on('chat-message')
+def on_chat_message(data):
+    room = data['room']
+    message = data['message']
+    username = data['username']
+    timestamp = data.get('timestamp')
+    
+    # Save chat to DB
+    try:
+        cursor = mysql.connection.cursor()
+        # Get interview ID first
+        cursor.execute('SELECT id FROM interviews WHERE meeting_link = %s', (room,))
+        interview = cursor.fetchone()
+        if interview:
+            cursor.execute('INSERT INTO chat_messages (interview_id, sender_username, message) VALUES (%s, %s, %s)', 
+                           (interview[0], username, message))
+            mysql.connection.commit()
+        cursor.close()
+    except Exception as e:
+        print(f"Error saving chat: {e}")
+        
+    emit('chat-message', {'message': message, 'username': username, 'timestamp': timestamp}, room=room, include_self=False)
 
 @socketio.on('offer')
 def on_offer(data):
