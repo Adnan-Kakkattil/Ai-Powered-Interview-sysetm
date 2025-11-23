@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Interview Room - AI Interview System{% endblock %}
+
+{% block content %}
+<div class="interview-room">
+    <h2>Interview Room</h2>
+    <div class="video-container">
+        <div class="video-box">
+            <h3>You</h3>
+            <video id="localVideo" autoplay muted playsinline></video>
+        </div>
+        <div class="video-box">
+            <h3>Remote</h3>
+            <video id="remoteVideo" autoplay playsinline></video>
+        </div>
+    </div>
+    <div class="controls">
+        <button id="toggleMic" class="btn">Mute Mic</button>
+        <button id="toggleCam" class="btn">Turn Off Camera</button>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-danger">Leave Interview</a>
+    </div>
+</div>
+
+<style>
+    .video-container {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        margin: 2rem 0;
+        flex-wrap: wrap;
+    }
+
+    .video-box {
+        width: 45%;
+        min-width: 300px;
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .video-box h3 {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: white;
+        margin: 0;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 2px 8px;
+        border-radius: 4px;
+        z-index: 10;
+    }
+
+    video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .controls {
+        text-align: center;
+        margin-top: 1rem;
+    }
+
+    .btn-danger {
+        background-color: #e74c3c;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ROOM_ID = "{{ meeting_link }}";
+</script>
+<script src="{{ url_for('static', filename='js/webrtc.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - AI Interview System{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h2>Welcome, {{ session.name }}</h2>
+
+    {% if role == 'admin' %}
+    <div class="actions">
+        <a href="{{ url_for('main.add_candidate') }}" class="btn">Add Candidate</a>
+        <a href="{{ url_for('main.schedule_interview') }}" class="btn">Schedule Interview</a>
+    </div>
+    {% endif %}
+
+    <h3>Upcoming Interviews</h3>
+    {% if interviews %}
+    <div class="interview-list">
+        {% for interview in interviews %}
+        <div class="card">
+            <h4>{{ interview.title }}</h4>
+            <p><strong>Time:</strong> {{ interview.scheduled_time }}</p>
+            <p><strong>Status:</strong> {{ interview.status }}</p>
+            {% if role == 'admin' %}
+            <p><strong>Candidate:</strong> {{ interview.candidate_name }}</p>
+            {% else %}
+            <p><strong>Interviewer:</strong> {{ interview.interviewer_name }}</p>
+            {% endif %}
+            <a href="{{ url_for('main.interview', meeting_link=interview.meeting_link) }}" class="btn">Join
+                Interview</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No interviews scheduled.</p>
+    {% endif %}
+</div>
+{% endblock %}
