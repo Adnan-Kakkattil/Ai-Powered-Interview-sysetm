@@ -127,4 +127,7 @@ def interview(meeting_link):
     cursor.execute('SELECT sender_username, message, DATE_FORMAT(timestamp, "%%H:%%i") as timestamp FROM chat_messages WHERE interview_id = %s ORDER BY timestamp ASC', (interview_data['id'],))
     chat_history = cursor.fetchall()
     
-    return render_template('interview.html', meeting_link=meeting_link, interview=interview_data, role=role, chat_history=chat_history)
+    # Fetch join status
+    join_status = interview_data.get('candidate_join_status', 'pending')
+    
+    return render_template('interview.html', meeting_link=meeting_link, interview=interview_data, role=role, chat_history=chat_history, join_status=join_status)

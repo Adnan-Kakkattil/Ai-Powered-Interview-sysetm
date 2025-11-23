@@ -25,7 +25,6 @@ function showToast(message) {
     }, 3000);
 }
 
-// Define createPeerConnection function properly
 function createPeerConnection() {
     peerConnection = new RTCPeerConnection(config);
 
@@ -51,18 +50,25 @@ function createPeerConnection() {
     }
 }
 
-// Get user media
-navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then(stream => {
-        localStream = stream;
-        localVideo.srcObject = stream;
-        socket.emit('join', { room: ROOM_ID, username: USERNAME });
-    })
-    .catch(error => {
-        console.error('Error accessing media devices:', error);
-        alert('Could not access camera/microphone. Please allow permissions.');
-    });
+function initializeMeeting() {
+    console.log("Initializing meeting...");
 
+    // Get Local Media
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+            localStream = stream;
+            localVideo.srcObject = stream;
+
+            // Join the room
+            socket.emit('join', { room: ROOM_ID, username: USERNAME });
+        })
+        .catch(error => {
+            console.error('Error accessing media devices:', error);
+            alert('Could not access camera/microphone. Please allow permissions.');
+        });
+}
+
+// Socket Events
 socket.on('user-joined', (data) => {
     showToast(`${data.username} joined the interview`);
 });
@@ -106,72 +112,80 @@ socket.on('ice-candidate', (data) => {
 });
 
 // Controls
-toggleMicBtn.addEventListener('click', () => {
-    const audioTrack = localStream.getAudioTracks()[0];
-    audioTrack.enabled = !audioTrack.enabled;
-    // UI update handled in interview.html script block
-});
-
-toggleCamBtn.addEventListener('click', () => {
-    const videoTrack = localStream.getVideoTracks()[0];
-    videoTrack.enabled = !videoTrack.enabled;
-    // UI update handled in interview.html script block
-});
-
-shareScreenBtn.addEventListener('click', () => {
-    const icon = shareScreenBtn.querySelector('.material-icons');
-
-    if (screenStream) {
-        // Stop screen share
-        const videoTrack = localStream.getVideoTracks()[0];
-
-        if (peerConnection) {
-            const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-            if (sender) {
-                sender.replaceTrack(videoTrack);
-            }
+if (toggleMicBtn) {
+    toggleMicBtn.addEventListener('click', () => {
+        if (localStream) {
+            const audioTrack = localStream.getAudioTracks()[0];
+            audioTrack.enabled = !audioTrack.enabled;
         }
+    });
+}
 
-        screenStream.getTracks().forEach(track => track.stop());
-        screenStream = null;
+if (toggleCamBtn) {
+    toggleCamBtn.addEventListener('click', () => {
+        if (localStream) {
+            const videoTrack = localStream.getVideoTracks()[0];
+            videoTrack.enabled = !videoTrack.enabled;
+        }
+    });
+}
 
-        shareScreenBtn.classList.remove('active-off');
-        icon.textContent = 'present_to_all';
-        shareScreenBtn.title = 'Share Screen';
+if (shareScreenBtn) {
+    shareScreenBtn.addEventListener('click', () => {
+        const icon = shareScreenBtn.querySelector('.material-icons');
 
-        localVideo.srcObject = localStream;
-    } else {
-        // Start screen share
-        navigator.mediaDevices.getDisplayMedia({ video: true })
-            .then(stream => {
-                screenStream = stream;
-                const screenTrack = screenStream.getVideoTracks()[0];
+        if (screenStream) {
+            // Stop screen share
+            const videoTrack = localStream.getVideoTracks()[0];
 
-                if (peerConnection) {
-                    const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-                    if (sender) {
-                        sender.replaceTrack(screenTrack);
-                    }
+            if (peerConnection) {
+                const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+                if (sender) {
+                    sender.replaceTrack(videoTrack);
                 }
+            }
 
-                shareScreenBtn.classList.add('active-off');
-                icon.textContent = 'cancel_presentation';
-                shareScreenBtn.title = 'Stop Sharing';
+            screenStream.getTracks().forEach(track => track.stop());
+            screenStream = null;
 
-                localVideo.srcObject = screenStream;
+            shareScreenBtn.classList.remove('active-off');
+            icon.textContent = 'present_to_all';
+            shareScreenBtn.title = 'Share Screen';
 
-                screenTrack.onended = () => {
-                    // Handle case where user stops sharing via browser UI
-                    if (screenStream) {
-                        shareScreenBtn.click();
+            localVideo.srcObject = localStream;
+        } else {
+            // Start screen share
+            navigator.mediaDevices.getDisplayMedia({ video: true })
+                .then(stream => {
+                    screenStream = stream;
+                    const screenTrack = screenStream.getVideoTracks()[0];
+
+                    if (peerConnection) {
+                        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(screenTrack);
+                        }
                     }
-                };
-            })
-            .catch(error => {
-                console.error('Error sharing screen:', error);
-            });
-    }
-});
+
+                    shareScreenBtn.classList.add('active-off');
+                    icon.textContent = 'cancel_presentation';
+                    shareScreenBtn.title = 'Stop Sharing';
+
+                    localVideo.srcObject = screenStream;
+
+                    screenTrack.onended = () => {
+                        // Handle case where user stops sharing via browser UI
+                        if (screenStream) {
+                            shareScreenBtn.click();
+                        }
+                    };
+                })
+                .catch(error => {
+                    console.error('Error sharing screen:', error);
+                });
+        }
+    });
+}
 
 window.addEventListener('beforeunload', () => {
     socket.emit('leave', { room: ROOM_ID, username: USERNAME });

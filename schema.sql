@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS interviews (
     status ENUM('scheduled', 'completed', 'cancelled') DEFAULT 'scheduled',
     meeting_link VARCHAR(255) UNIQUE NOT NULL,
     code_content TEXT,
+    candidate_join_status ENUM('pending', 'requested', 'approved', 'rejected') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (interviewer_id) REFERENCES users(id),
     FOREIGN KEY (candidate_id) REFERENCES users(id)

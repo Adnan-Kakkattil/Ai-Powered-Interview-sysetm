@@ -6,7 +6,48 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
 
-<div class="main-container">
+<!-- Pre-join Screen (Candidate Only) -->
+{% if role == 'candidate' and join_status != 'approved' %}
+<div id="preJoinScreen" class="overlay-screen">
+    <div class="card">
+        <h2>Ready to Join?</h2>
+        <p>Please check your camera and microphone before joining.</p>
+        <div class="preview-area">
+            <video id="previewVideo" autoplay muted playsinline></video>
+        </div>
+        <div class="actions">
+            <button id="checkDevicesBtn" class="btn-primary">Check Devices</button>
+            <button id="askToJoinBtn" class="btn-success" disabled>Ask to Join</button>
+        </div>
+        <div id="deviceStatus" class="status-text"></div>
+    </div>
+</div>
+
+<div id="waitingScreen" class="overlay-screen" style="display: none;">
+    <div class="card">
+        <h2>Waiting for Approval</h2>
+        <p>The interviewer has been notified. Please wait...</p>
+        <div class="loader"></div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Interviewer Approval Popup -->
+{% if role == 'interviewer' %}
+<div id="approvalPopup" class="popup-overlay" style="display: none;">
+    <div class="popup-card">
+        <h3>Join Request</h3>
+        <p><span id="requestingUser">Candidate</span> wants to join the interview.</p>
+        <div class="popup-actions">
+            <button id="denyJoinBtn" class="btn-danger">Deny</button>
+            <button id="approveJoinBtn" class="btn-success">Admit</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="main-container" id="mainContainer" {% if role=='candidate' and join_status !='approved'
+    %}style="display: none;" {% endif %}>
     <!-- Left Panel: Code Editor -->
     <div class="editor-panel">
         <div class="panel-header">
@@ -431,6 +472,145 @@
     .send-btn {
         color: #1a73e8;
     }
+
+    /* Overlay Screens */
+    .overlay-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #202124;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+    }
+
+    .card {
+        background: #3c4043;
+        padding: 30px;
+        border-radius: 8px;
+        text-align: center;
+        color: white;
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .preview-area {
+        width: 100%;
+        height: 300px;
+        background: #000;
+        margin: 20px 0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    #previewVideo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1);
+    }
+
+    .actions {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+    }
+
+    .btn-primary {
+        background: #1a73e8;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-success {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-danger {
+        background: #ea4335;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .status-text {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #aaa;
+    }
+
+    /* Loader */
+    .loader {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Popup */
+    .popup-overlay {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 3000;
+    }
+
+    .popup-card {
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        width: 300px;
+        animation: slideInRight 0.3s;
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+        }
+
+        to {
+            transform: translateX(0);
+        }
+    }
+
+    .popup-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 15px;
+    }
 </style>
 {% endblock %}
 
@@ -438,6 +618,8 @@
 <script>
     const ROOM_ID = "{{ meeting_link }}";
     const USERNAME = "{{ session.name }}";
+    const ROLE = "{{ role }}";
+    const JOIN_STATUS = "{{ join_status }}";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
@@ -457,7 +639,7 @@
         chatMsgs.scrollTop = chatMsgs.scrollHeight;
     }
 
-    // Update button states based on tracks
+    // Update button states
     const micBtn = document.getElementById('toggleMic');
     const camBtn = document.getElementById('toggleCam');
 
@@ -490,6 +672,92 @@
     function confirmEndCall() {
         if (confirm("Are you sure you want to end the interview?")) {
             window.location.href = "{{ url_for('main.dashboard') }}";
+        }
+    }
+
+    // Join Request Logic
+    const preJoinScreen = document.getElementById('preJoinScreen');
+    const waitingScreen = document.getElementById('waitingScreen');
+    const mainContainer = document.getElementById('mainContainer');
+    const previewVideo = document.getElementById('previewVideo');
+    const checkDevicesBtn = document.getElementById('checkDevicesBtn');
+    const askToJoinBtn = document.getElementById('askToJoinBtn');
+    const deviceStatus = document.getElementById('deviceStatus');
+    const approvalPopup = document.getElementById('approvalPopup');
+    const approveJoinBtn = document.getElementById('approveJoinBtn');
+    const denyJoinBtn = document.getElementById('denyJoinBtn');
+
+    // Candidate Flow
+    if (ROLE === 'candidate' && JOIN_STATUS !== 'approved') {
+        // Device Check
+        if (checkDevicesBtn) {
+            checkDevicesBtn.addEventListener('click', async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    previewVideo.srcObject = stream;
+                    deviceStatus.textContent = "Camera and Microphone are working!";
+                    deviceStatus.style.color = "#28a745";
+                    askToJoinBtn.disabled = false;
+                } catch (err) {
+                    console.error(err);
+                    deviceStatus.textContent = "Error accessing devices: " + err.message;
+                    deviceStatus.style.color = "#ea4335";
+                }
+            });
+        }
+
+        // Ask to Join
+        if (askToJoinBtn) {
+            askToJoinBtn.addEventListener('click', () => {
+                socket.emit('request-join', { room: ROOM_ID, username: USERNAME });
+                preJoinScreen.style.display = 'none';
+                waitingScreen.style.display = 'flex';
+
+                // Stop preview stream
+                if (previewVideo.srcObject) {
+                    previewVideo.srcObject.getTracks().forEach(track => track.stop());
+                }
+            });
+        }
+
+        // Listen for approval
+        socket.on('join-approved', () => {
+            waitingScreen.style.display = 'none';
+            mainContainer.style.display = 'flex';
+            initializeMeeting(); // Start WebRTC
+        });
+
+        socket.on('join-rejected', () => {
+            alert("Your request to join was denied.");
+            window.location.href = "{{ url_for('main.dashboard') }}";
+        });
+    } else {
+        // Interviewer or Approved Candidate
+        if (typeof initializeMeeting === 'function') {
+            initializeMeeting();
+        }
+    }
+
+    // Interviewer Flow
+    if (ROLE === 'interviewer') {
+        socket.on('join-request', (data) => {
+            const userSpan = document.getElementById('requestingUser');
+            if (userSpan) userSpan.textContent = data.username;
+            if (approvalPopup) approvalPopup.style.display = 'block';
+        });
+
+        if (approveJoinBtn) {
+            approveJoinBtn.addEventListener('click', () => {
+                socket.emit('approve-join', { room: ROOM_ID });
+                if (approvalPopup) approvalPopup.style.display = 'none';
+            });
+        }
+
+        if (denyJoinBtn) {
+            denyJoinBtn.addEventListener('click', () => {
+                socket.emit('reject-join', { room: ROOM_ID });
+                if (approvalPopup) approvalPopup.style.display = 'none';
+            });
         }
     }
 </script>

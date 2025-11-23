@@ -96,6 +96,60 @@ def on_chat_message(data):
         
     emit('chat-message', {'message': message, 'username': username, 'timestamp': timestamp}, room=room, include_self=False)
 
+    emit('chat-message', {'message': message, 'username': username, 'timestamp': timestamp}, room=room, include_self=False)
+
+@socketio.on('request-join')
+def on_request_join(data):
+    room = data['room']
+    username = data['username']
+    
+    # Join waiting room to receive approval
+    join_room(f"{room}_waiting")
+    
+    # Update DB status
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("UPDATE interviews SET candidate_join_status = 'requested' WHERE meeting_link = %s", (room,))
+        mysql.connection.commit()
+        cursor.close()
+    except Exception as e:
+        print(f"Error updating join status: {e}")
+        
+    # Notify interviewer (who is in the main room)
+    emit('join-request', {'username': username}, room=room)
+
+@socketio.on('approve-join')
+def on_approve_join(data):
+    room = data['room']
+    
+    # Update DB status
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("UPDATE interviews SET candidate_join_status = 'approved' WHERE meeting_link = %s", (room,))
+        mysql.connection.commit()
+        cursor.close()
+    except Exception as e:
+        print(f"Error approving join: {e}")
+        
+    # Notify candidate (in waiting room)
+    emit('join-approved', {}, room=f"{room}_waiting")
+
+@socketio.on('reject-join')
+def on_reject_join(data):
+    room = data['room']
+    
+    # Update DB status
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("UPDATE interviews SET candidate_join_status = 'rejected' WHERE meeting_link = %s", (room,))
+        mysql.connection.commit()
+        cursor.close()
+    except Exception as e:
+        print(f"Error rejecting join: {e}")
+        
+    # Notify candidate (in waiting room)
+    emit('join-rejected', {}, room=f"{room}_waiting")
+
 @socketio.on('offer')
 def on_offer(data):
     room = data['room']
