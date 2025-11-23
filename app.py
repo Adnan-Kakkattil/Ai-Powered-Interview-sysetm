@@ -56,6 +56,13 @@ def on_leave(data):
         
     emit('user-left', {'username': username}, room=room, include_self=False)
 
+@socketio.on('code-change')
+def on_code_change(data):
+    room = data['room']
+    code = data['code']
+    # Broadcast code to everyone else in the room
+    emit('code-update', {'code': code}, room=room, include_self=False)
+
 @socketio.on('offer')
 def on_offer(data):
     room = data['room']

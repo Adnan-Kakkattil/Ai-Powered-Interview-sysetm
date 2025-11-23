@@ -95,7 +95,32 @@ def interview(meeting_link):
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
         
-    # Verify interview exists and user is participant
-    # ... logic here ...
+    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
     
-    return render_template('interview.html', meeting_link=meeting_link)
+    # Fetch interview details with names
+    cursor.execute('''
+        SELECT i.*, 
+               c.name as candidate_name, 
+               intv.name as interviewer_name 
+        FROM interviews i 
+        JOIN users c ON i.candidate_id = c.id 
+        JOIN users intv ON i.interviewer_id = intv.id 
+        WHERE i.meeting_link = %s
+    ''', (meeting_link,))
+    interview_data = cursor.fetchone()
+    
+    if not interview_data:
+        flash('Interview not found.', 'danger')
+        return redirect(url_for('main.dashboard'))
+        
+    user_id = session['user_id']
+    
+    # Validate participation
+    if user_id != interview_data['interviewer_id'] and user_id != interview_data['candidate_id']:
+        flash('You are not authorized to join this interview.', 'danger')
+        return redirect(url_for('main.dashboard'))
+        
+    # Determine role for this specific interview
+    role = 'interviewer' if user_id == interview_data['interviewer_id'] else 'candidate'
+    
+    return render_template('interview.html', meeting_link=meeting_link, interview=interview_data, role=role)

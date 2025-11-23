@@ -3,36 +3,66 @@
 {% block title %}Interview Room - AI Interview System{% endblock %}
 
 {% block content %}
-<div class="meet-container">
-    <div class="video-grid">
-        <!-- Remote Video (Main) -->
-        <div class="remote-video-wrapper">
-            <video id="remoteVideo" autoplay playsinline></video>
-            <div class="participant-label">Remote User</div>
-        </div>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
 
-        <!-- Local Video (PIP) -->
-        <div class="local-video-wrapper">
-            <video id="localVideo" autoplay muted playsinline></video>
-            <div class="participant-label">You</div>
+<div class="main-container">
+    <!-- Left Panel: Code Editor -->
+    <div class="editor-panel">
+        <div class="panel-header">
+            <span>Python Editor</span>
+            <span class="status-badge">Live Sync Active</span>
         </div>
+        <textarea id="codeEditor"># Write your code here...</textarea>
     </div>
 
-    <!-- Bottom Control Bar -->
-    <div class="control-bar">
-        <div class="control-group">
-            <button id="toggleMic" class="control-btn" title="Toggle Microphone">
-                <span class="material-icons">mic</span>
-            </button>
-            <button id="toggleCam" class="control-btn" title="Toggle Camera">
-                <span class="material-icons">videocam</span>
-            </button>
-            <button id="shareScreen" class="control-btn" title="Share Screen">
-                <span class="material-icons">present_to_all</span>
-            </button>
-            <a href="{{ url_for('main.dashboard') }}" class="control-btn btn-end-call" title="Leave Call">
-                <span class="material-icons">call_end</span>
-            </a>
+    <!-- Right Panel: Video Call -->
+    <div class="video-panel">
+        <div class="meet-container">
+            <div class="video-grid">
+                <!-- Remote Video (Main) -->
+                <div class="remote-video-wrapper">
+                    <video id="remoteVideo" autoplay playsinline></video>
+                    <div class="participant-label">
+                        {% if role == 'interviewer' %}
+                        Candidate: {{ interview.candidate_name }}
+                        {% else %}
+                        Interviewer: {{ interview.interviewer_name }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Local Video (PIP) -->
+                <div class="local-video-wrapper">
+                    <video id="localVideo" autoplay muted playsinline></video>
+                    <div class="participant-label">You ({{ role|title }})</div>
+                </div>
+            </div>
+
+            <!-- Bottom Control Bar -->
+            <div class="control-bar">
+                <div class="control-group">
+                    <button id="toggleMic" class="control-btn" title="Toggle Microphone">
+                        <span class="material-icons">mic</span>
+                    </button>
+                    <button id="toggleCam" class="control-btn" title="Toggle Camera">
+                        <span class="material-icons">videocam</span>
+                    </button>
+                    <button id="shareScreen" class="control-btn" title="Share Screen">
+                        <span class="material-icons">present_to_all</span>
+                    </button>
+
+                    {% if role == 'interviewer' %}
+                    <button class="control-btn btn-end-call" title="End Interview" onclick="confirmEndCall()">
+                        <span class="material-icons">call_end</span>
+                    </button>
+                    {% else %}
+                    <a href="{{ url_for('main.dashboard') }}" class="control-btn btn-end-call" title="Leave Call">
+                        <span class="material-icons">call_end</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 
@@ -40,20 +70,71 @@
 </div>
 
 <style>
-    /* Override base container for full screen feel */
+    /* Reset & Layout */
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #1e1e1e;
+    }
+
     .container {
         max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+        display: block !important;
+        /* Ensure it's visible but we override its styles */
+    }
+
+    .main-container {
+        display: flex;
         height: calc(100vh - 60px);
-        /* Subtract nav height */
+        width: 100%;
         background-color: #202124;
-        overflow: hidden;
+    }
+
+    /* Editor Panel */
+    .editor-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #333;
+        min-width: 400px;
+    }
+
+    .panel-header {
+        background: #252526;
+        color: #cccccc;
+        padding: 10px 20px;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #333;
+    }
+
+    .status-badge {
+        font-size: 10px;
+        background: #28a745;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    .CodeMirror {
+        flex: 1;
+        font-family: 'Fira Code', monospace;
+        font-size: 14px;
+    }
+
+    /* Video Panel */
+    .video-panel {
+        flex: 1;
+        position: relative;
+        background: #202124;
     }
 
     .meet-container {
-        position: relative;
-        width: 100%;
         height: 100%;
         display: flex;
         flex-direction: column;
@@ -88,19 +169,21 @@
         position: absolute;
         bottom: 20px;
         right: 20px;
-        width: 280px;
-        height: 160px;
+        width: 200px;
+        /* Smaller PIP for split view */
+        height: 115px;
         background: #3c4043;
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         border: 2px solid rgba(255, 255, 255, 0.1);
+        z-index: 100;
         transition: all 0.3s ease;
     }
 
     .local-video-wrapper:hover {
-        width: 350px;
-        height: 200px;
+        width: 250px;
+        height: 144px;
     }
 
     #localVideo {
@@ -108,7 +191,6 @@
         height: 100%;
         object-fit: cover;
         transform: scaleX(-1);
-        /* Mirror effect */
     }
 
     .participant-label {
@@ -125,25 +207,25 @@
 
     /* Control Bar */
     .control-bar {
-        height: 80px;
+        height: 70px;
         background: #202124;
         display: flex;
         justify-content: center;
         align-items: center;
-        padding-bottom: 20px;
+        padding-bottom: 10px;
     }
 
     .control-group {
         display: flex;
-        gap: 15px;
+        gap: 10px;
         background: #3c4043;
-        padding: 10px 20px;
+        padding: 8px 16px;
         border-radius: 50px;
     }
 
     .control-btn {
-        width: 50px;
-        height: 50px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         border: none;
         background: #3c4043;
@@ -170,7 +252,7 @@
 
     .btn-end-call {
         background: #ea4335;
-        width: 60px;
+        width: 50px;
         border-radius: 30px;
     }
 
@@ -181,15 +263,16 @@
     /* Toast */
     #toast-container {
         position: fixed;
-        bottom: 100px;
-        left: 20px;
+        bottom: 90px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 1000;
     }
 
     .toast {
         background: #3c4043;
         color: white;
-        padding: 12px 24px;
+        padding: 10px 20px;
         border-radius: 4px;
         margin-top: 10px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -198,12 +281,12 @@
 
     @keyframes slideIn {
         from {
-            transform: translateX(-100%);
+            transform: translateY(20px);
             opacity: 0;
         }
 
         to {
-            transform: translateX(0);
+            transform: translateY(0);
             opacity: 1;
         }
     }
@@ -225,7 +308,10 @@
     const ROOM_ID = "{{ meeting_link }}";
     const USERNAME = "{{ session.name }}";
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
 <script src="{{ url_for('static', filename='js/webrtc.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
 <script>
     // Update button states based on tracks
     const micBtn = document.getElementById('toggleMic');
@@ -252,5 +338,11 @@
             icon.textContent = 'videocam_off';
         }
     });
+
+    function confirmEndCall() {
+        if (confirm("Are you sure you want to end the interview?")) {
+            window.location.href = "{{ url_for('main.dashboard') }}";
+        }
+    }
 </script>
 {% endblock %}
