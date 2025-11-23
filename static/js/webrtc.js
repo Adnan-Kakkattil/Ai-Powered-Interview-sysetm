@@ -25,6 +25,32 @@ function showToast(message) {
     }, 3000);
 }
 
+// Define createPeerConnection function properly
+function createPeerConnection() {
+    peerConnection = new RTCPeerConnection(config);
+
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit('ice-candidate', { room: ROOM_ID, candidate: event.candidate });
+        }
+    };
+
+    peerConnection.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
+    };
+
+    // Add tracks
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        if (screenStream) {
+            peerConnection.addTrack(screenStream.getVideoTracks()[0], localStream);
+        } else {
+            peerConnection.addTrack(localStream.getVideoTracks()[0], localStream);
+        }
+    }
+}
+
 // Get user media
 navigator.mediaDevices.getUserMedia({ video: true, audio: true })
     .then(stream => {
@@ -48,7 +74,6 @@ socket.on('user-left', (data) => {
 socket.on('joined', () => {
     // Initiator creates offer
     createPeerConnection();
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     peerConnection.createOffer()
         .then(offer => peerConnection.setLocalDescription(offer))
@@ -60,7 +85,6 @@ socket.on('joined', () => {
 socket.on('offer', (data) => {
     if (!peerConnection) {
         createPeerConnection();
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
     }
 
     peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer))
@@ -81,42 +105,40 @@ socket.on('ice-candidate', (data) => {
     }
 });
 
-function createPeerConnection() {
-    peerConnection = new RTCPeerConnection(config);
-
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('ice-candidate', { room: ROOM_ID, candidate: event.candidate });
-        }
-    };
-
-    peerConnection.ontrack = (event) => {
-        remoteVideo.srcObject = event.streams[0];
-    };
-}
-
 // Controls
 toggleMicBtn.addEventListener('click', () => {
     const audioTrack = localStream.getAudioTracks()[0];
     audioTrack.enabled = !audioTrack.enabled;
-    toggleMicBtn.textContent = audioTrack.enabled ? 'Mute Mic' : 'Unmute Mic';
+    // UI update handled in interview.html script block
 });
 
 toggleCamBtn.addEventListener('click', () => {
     const videoTrack = localStream.getVideoTracks()[0];
     videoTrack.enabled = !videoTrack.enabled;
-    toggleCamBtn.textContent = videoTrack.enabled ? 'Turn Off Camera' : 'Turn On Camera';
+    // UI update handled in interview.html script block
 });
 
 shareScreenBtn.addEventListener('click', () => {
+    const icon = shareScreenBtn.querySelector('.material-icons');
+
     if (screenStream) {
         // Stop screen share
         const videoTrack = localStream.getVideoTracks()[0];
-        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-        sender.replaceTrack(videoTrack);
+
+        if (peerConnection) {
+            const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+            if (sender) {
+                sender.replaceTrack(videoTrack);
+            }
+        }
+
         screenStream.getTracks().forEach(track => track.stop());
         screenStream = null;
-        shareScreenBtn.textContent = 'Share Screen';
+
+        shareScreenBtn.classList.remove('active-off');
+        icon.textContent = 'present_to_all';
+        shareScreenBtn.title = 'Share Screen';
+
         localVideo.srcObject = localStream;
     } else {
         // Start screen share
@@ -124,10 +146,18 @@ shareScreenBtn.addEventListener('click', () => {
             .then(stream => {
                 screenStream = stream;
                 const screenTrack = screenStream.getVideoTracks()[0];
-                const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-                sender.replaceTrack(screenTrack);
 
-                shareScreenBtn.textContent = 'Stop Sharing';
+                if (peerConnection) {
+                    const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+                    if (sender) {
+                        sender.replaceTrack(screenTrack);
+                    }
+                }
+
+                shareScreenBtn.classList.add('active-off');
+                icon.textContent = 'cancel_presentation';
+                shareScreenBtn.title = 'Stop Sharing';
+
                 localVideo.srcObject = screenStream;
 
                 screenTrack.onended = () => {
