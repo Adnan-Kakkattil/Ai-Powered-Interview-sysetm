@@ -3,112 +3,218 @@
 {% block title %}Interview Room - AI Interview System{% endblock %}
 
 {% block content %}
-<div class="interview-room">
-    <h2>Interview Room</h2>
-    <div class="video-container">
-        <div class="video-box">
-            <h3>You</h3>
-            <video id="localVideo" autoplay muted playsinline></video>
-        </div>
-        <div class="video-box">
-            <h3>Remote</h3>
+<div class="meet-container">
+    <div class="video-grid">
+        <!-- Remote Video (Main) -->
+        <div class="remote-video-wrapper">
             <video id="remoteVideo" autoplay playsinline></video>
+            <div class="participant-label">Remote User</div>
+        </div>
+
+        <!-- Local Video (PIP) -->
+        <div class="local-video-wrapper">
+            <video id="localVideo" autoplay muted playsinline></video>
+            <div class="participant-label">You</div>
         </div>
     </div>
-    <div class="controls">
-        <button id="toggleMic" class="btn">Mute Mic</button>
-        <button id="toggleCam" class="btn">Turn Off Camera</button>
-        <button id="shareScreen" class="btn" style="background-color: #9b59b6;">Share Screen</button>
-        <a href="{{ url_for('main.dashboard') }}" class="btn btn-danger">Leave Interview</a>
+
+    <!-- Bottom Control Bar -->
+    <div class="control-bar">
+        <div class="control-group">
+            <button id="toggleMic" class="control-btn" title="Toggle Microphone">
+                <span class="material-icons">mic</span>
+            </button>
+            <button id="toggleCam" class="control-btn" title="Toggle Camera">
+                <span class="material-icons">videocam</span>
+            </button>
+            <button id="shareScreen" class="control-btn" title="Share Screen">
+                <span class="material-icons">present_to_all</span>
+            </button>
+            <a href="{{ url_for('main.dashboard') }}" class="control-btn btn-end-call" title="Leave Call">
+                <span class="material-icons">call_end</span>
+            </a>
+        </div>
     </div>
+
     <div id="toast-container"></div>
 </div>
 
 <style>
-    .video-container {
+    /* Override base container for full screen feel */
+    .container {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: calc(100vh - 60px);
+        /* Subtract nav height */
+        background-color: #202124;
+        overflow: hidden;
+    }
+
+    .meet-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .video-grid {
+        flex: 1;
+        position: relative;
         display: flex;
         justify-content: center;
-        gap: 2rem;
-        margin: 2rem 0;
-        flex-wrap: wrap;
+        align-items: center;
+        padding: 20px;
     }
 
-    .video-box {
-        width: 45%;
-        min-width: 300px;
-        background: #000;
+    .remote-video-wrapper {
+        width: 100%;
+        height: 100%;
+        max-width: 1200px;
+        position: relative;
         border-radius: 8px;
         overflow: hidden;
-        position: relative;
+        background: #3c4043;
     }
 
-    .video-box h3 {
+    #remoteVideo {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .local-video-wrapper {
         position: absolute;
-        top: 10px;
-        left: 10px;
-        color: white;
-        margin: 0;
-        background: rgba(0, 0, 0, 0.5);
-        padding: 2px 8px;
-        border-radius: 4px;
-        z-index: 10;
+        bottom: 20px;
+        right: 20px;
+        width: 280px;
+        height: 160px;
+        background: #3c4043;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
     }
 
-    video {
+    .local-video-wrapper:hover {
+        width: 350px;
+        height: 200px;
+    }
+
+    #localVideo {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        display: block;
+        transform: scaleX(-1);
+        /* Mirror effect */
     }
 
-    .controls {
-        text-align: center;
-        margin-top: 1rem;
+    .participant-label {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        color: white;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        pointer-events: none;
     }
 
-    .btn-danger {
-        background-color: #e74c3c;
+    /* Control Bar */
+    .control-bar {
+        height: 80px;
+        background: #202124;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding-bottom: 20px;
     }
 
+    .control-group {
+        display: flex;
+        gap: 15px;
+        background: #3c4043;
+        padding: 10px 20px;
+        border-radius: 50px;
+    }
+
+    .control-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: none;
+        background: #3c4043;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: background 0.2s;
+    }
+
+    .control-btn:hover {
+        background: #4a4e51;
+    }
+
+    .control-btn.active-off {
+        background: #ea4335;
+        color: white;
+    }
+
+    .control-btn.active-off:hover {
+        background: #d93025;
+    }
+
+    .btn-end-call {
+        background: #ea4335;
+        width: 60px;
+        border-radius: 30px;
+    }
+
+    .btn-end-call:hover {
+        background: #d93025;
+    }
+
+    /* Toast */
     #toast-container {
         position: fixed;
-        bottom: 20px;
-        right: 20px;
+        bottom: 100px;
+        left: 20px;
         z-index: 1000;
     }
 
     .toast {
-        background: rgba(0, 0, 0, 0.8);
+        background: #3c4043;
         color: white;
-        padding: 10px 20px;
+        padding: 12px 24px;
         border-radius: 4px;
         margin-top: 10px;
-        animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
-        opacity: 0;
-        animation-fill-mode: forwards;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        animation: slideIn 0.3s, fadeOut 0.3s 2.7s forwards;
     }
 
-    @keyframes fadeIn {
+    @keyframes slideIn {
         from {
+            transform: translateX(-100%);
             opacity: 0;
-            transform: translateY(20px);
         }
 
         to {
+            transform: translateX(0);
             opacity: 1;
-            transform: translateY(0);
         }
     }
 
     @keyframes fadeOut {
         from {
             opacity: 1;
-            transform: translateY(0);
         }
 
         to {
             opacity: 0;
-            transform: translateY(-20px);
         }
     }
 </style>
@@ -120,4 +226,31 @@
     const USERNAME = "{{ session.name }}";
 </script>
 <script src="{{ url_for('static', filename='js/webrtc.js') }}"></script>
+<script>
+    // Update button states based on tracks
+    const micBtn = document.getElementById('toggleMic');
+    const camBtn = document.getElementById('toggleCam');
+
+    micBtn.addEventListener('click', () => {
+        const icon = micBtn.querySelector('.material-icons');
+        if (micBtn.classList.contains('active-off')) {
+            micBtn.classList.remove('active-off');
+            icon.textContent = 'mic';
+        } else {
+            micBtn.classList.add('active-off');
+            icon.textContent = 'mic_off';
+        }
+    });
+
+    camBtn.addEventListener('click', () => {
+        const icon = camBtn.querySelector('.material-icons');
+        if (camBtn.classList.contains('active-off')) {
+            camBtn.classList.remove('active-off');
+            icon.textContent = 'videocam';
+        } else {
+            camBtn.classList.add('active-off');
+            icon.textContent = 'videocam_off';
+        }
+    });
+</script>
 {% endblock %}
