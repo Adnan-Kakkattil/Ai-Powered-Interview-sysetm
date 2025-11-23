@@ -19,18 +19,42 @@ def index():
 
 from flask_socketio import join_room, leave_room, emit
 
+from flask import request
+
+connected_users = {}
+
 @socketio.on('join')
 def on_join(data):
     room = data['room']
+    username = data.get('username')
     join_room(room)
-    # Notify others in the room that a user has joined, 
-    # but for simple P2P, the second person joining triggers the offer flow usually initiated by the new comer or the existing one.
-    # Here we'll just emit 'user-connected' to let existing users know, 
-    # OR simpler: if there are 2 people, the second one triggers the flow?
-    # Actually, standard pattern: 
-    # Client A joins. Client B joins. 
-    # If we want Client A (already there) to offer to Client B, we need to tell A that B joined.
-    emit('joined', room=room, include_self=False) # Tell others I joined
+    
+    # Store user info for disconnect handling
+    connected_users[request.sid] = {'room': room, 'username': username}
+    
+    emit('user-joined', {'username': username}, room=room, include_self=False)
+    emit('joined', room=room, include_self=False)
+
+@socketio.on('disconnect')
+def on_disconnect():
+    user_info = connected_users.get(request.sid)
+    if user_info:
+        room = user_info['room']
+        username = user_info['username']
+        emit('user-left', {'username': username}, room=room, include_self=False)
+        del connected_users[request.sid]
+
+@socketio.on('leave')
+def on_leave(data):
+    room = data['room']
+    username = data.get('username')
+    leave_room(room)
+    
+    # Remove from connected_users if they explicitly leave
+    if request.sid in connected_users:
+        del connected_users[request.sid]
+        
+    emit('user-left', {'username': username}, room=room, include_self=False)
 
 @socketio.on('offer')
 def on_offer(data):

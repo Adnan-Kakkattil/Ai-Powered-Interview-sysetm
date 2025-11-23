@@ -18,8 +18,10 @@
     <div class="controls">
         <button id="toggleMic" class="btn">Mute Mic</button>
         <button id="toggleCam" class="btn">Turn Off Camera</button>
+        <button id="shareScreen" class="btn" style="background-color: #9b59b6;">Share Screen</button>
         <a href="{{ url_for('main.dashboard') }}" class="btn btn-danger">Leave Interview</a>
     </div>
+    <div id="toast-container"></div>
 </div>
 
 <style>
@@ -67,12 +69,55 @@
     .btn-danger {
         background-color: #e74c3c;
     }
+
+    #toast-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+    }
+
+    .toast {
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        margin-top: 10px;
+        animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+        opacity: 0;
+        animation-fill-mode: forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeOut {
+        from {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        to {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+    }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
     const ROOM_ID = "{{ meeting_link }}";
+    const USERNAME = "{{ session.name }}";
 </script>
 <script src="{{ url_for('static', filename='js/webrtc.js') }}"></script>
 {% endblock %}
