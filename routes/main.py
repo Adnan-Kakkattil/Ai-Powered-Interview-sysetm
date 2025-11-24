@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request
+from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
 from werkzeug.security import generate_password_hash
 import MySQLdb.cursors
 from extensions import mysql
@@ -131,3 +131,36 @@ def interview(meeting_link):
     join_status = interview_data.get('candidate_join_status', 'pending')
     
     return render_template('interview.html', meeting_link=meeting_link, interview=interview_data, role=role, chat_history=chat_history, join_status=join_status)
+
+@bp.route('/interview/<meeting_link>/complete', methods=['POST'])
+def complete_interview(meeting_link):
+    """Mark interview as completed - only interviewer can do this"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
+    
+    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
+    
+    # Fetch interview details
+    cursor.execute('SELECT * FROM interviews WHERE meeting_link = %s', (meeting_link,))
+    interview_data = cursor.fetchone()
+    
+    if not interview_data:
+        cursor.close()
+        return jsonify({'success': False, 'message': 'Interview not found'}), 404
+    
+    user_id = session['user_id']
+    
+    # Only interviewer can mark as completed
+    if user_id != interview_data['interviewer_id']:
+        cursor.close()
+        return jsonify({'success': False, 'message': 'Only interviewer can mark interview as completed'}), 403
+    
+    # Update status to completed
+    try:
+        cursor.execute('UPDATE interviews SET status = "completed" WHERE meeting_link = %s', (meeting_link,))
+        get_db().connection.commit()
+        cursor.close()
+        return jsonify({'success': True, 'message': 'Interview marked as completed'})
+    except Exception as e:
+        cursor.close()
+        return jsonify({'success': False, 'message': f'Error updating status: {str(e)}'}), 500
