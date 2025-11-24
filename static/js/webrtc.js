@@ -66,6 +66,12 @@ function initializeMeeting() {
         .then(stream => {
             localStream = stream;
             localVideo.srcObject = stream;
+            
+            // Also set stream for face detection video if it exists
+            const faceDetectionVideo = document.getElementById('faceDetectionVideo');
+            if (faceDetectionVideo) {
+                faceDetectionVideo.srcObject = stream;
+            }
 
             // Join the room
             socket.emit('join', { room: ROOM_ID, username: USERNAME });

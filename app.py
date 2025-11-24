@@ -178,5 +178,33 @@ def on_ice_candidate(data):
     room = data['room']
     emit('ice-candidate', data, room=room, include_self=False)
 
+@socketio.on('cheat-detected')
+def on_cheat_detected(data):
+    """Handle cheat detection alerts from candidates"""
+    room = data['room']
+    cheat_type = data.get('type')
+    message = data.get('message')
+    timestamp = data.get('timestamp')
+    
+    # Save to database for logging
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute('SELECT id FROM interviews WHERE meeting_link = %s', (room,))
+        interview = cursor.fetchone()
+        if interview:
+            # You can create a cheat_logs table if needed
+            # For now, just log to console
+            print(f"Cheat detected in room {room}: {cheat_type} - {message} at {timestamp}")
+        cursor.close()
+    except Exception as e:
+        print(f"Error logging cheat detection: {e}")
+    
+    # Notify interviewer (who is in the main room)
+    emit('cheat-alert', {
+        'type': cheat_type,
+        'message': message,
+        'timestamp': timestamp
+    }, room=room)
+
 if __name__ == '__main__':
     socketio.run(app, debug=True)

@@ -406,14 +406,13 @@
                     <!-- Remote Video -->
                     <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover opacity-90"></video>
 
-                    <!-- AI Overlays -->
-                    <div class="absolute inset-0 pointer-events-none">
-                        <div class="face-box"></div> <!-- Simulated Face Track -->
-                        <div class="scanner-line"></div>
-                        <div class="absolute top-2 left-2 flex flex-col gap-1">
+                    <!-- AI Overlays - Real Face Detection -->
+                    <div class="absolute inset-0 pointer-events-none" id="faceDetectionOverlay">
+                        <canvas id="faceDetectionCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                        <div class="absolute top-2 left-2 flex flex-col gap-1" id="faceDetectionStatus">
                             <span
-                                class="bg-black/60 text-green-400 text-[10px] px-1.5 py-0.5 rounded border border-green-500/30">
-                                <i class="fa-solid fa-eye mr-1"></i> Eye Contact: Good
+                                class="bg-black/60 text-gray-400 text-[10px] px-1.5 py-0.5 rounded border border-gray-500/30">
+                                <i class="fa-solid fa-spinner fa-spin mr-1"></i> Initializing...
                             </span>
                         </div>
                     </div>
@@ -511,6 +510,9 @@
 
     <div id="toast-container" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50"></div>
 
+    <!-- Face Detection Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+    
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
@@ -524,6 +526,7 @@
     <script src="{{ url_for('static', filename='js/webrtc.js') }}"></script>
     <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/face-detection.js') }}"></script>
     <script>
         // Pre-fill code if exists
         const savedCode = `{{ interview.code_content|default('# Write your code here...', true)|safe }}`;
@@ -536,6 +539,119 @@
         if (chatMsgs) {
             chatMsgs.scrollTop = chatMsgs.scrollHeight;
         }
+
+        // Initialize Face Detection when video is ready
+        function initializeFaceDetectionForInterview() {
+            const localVideo = document.getElementById('localVideo');
+            const statusElement = document.getElementById('faceDetectionStatus');
+            
+            if (!localVideo) return;
+            
+            // Wait for video stream
+            const checkVideo = setInterval(() => {
+                if (localVideo.srcObject && localVideo.videoWidth > 0) {
+                    clearInterval(checkVideo);
+                    
+                    // Update status
+                    if (statusElement) {
+                        statusElement.innerHTML = `
+                            <span class="bg-black/60 text-yellow-400 text-[10px] px-1.5 py-0.5 rounded border border-yellow-500/30">
+                                <i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading AI models...
+                            </span>
+                        `;
+                    }
+                    
+                    // Initialize face detection
+                    if (typeof window.faceDetection !== 'undefined' && typeof faceapi !== 'undefined') {
+                        // Load models first
+                        faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/')
+                            .then(() => faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'))
+                            .then(() => {
+                                console.log('Face detection models loaded');
+                                if (statusElement) {
+                                    statusElement.innerHTML = `
+                                        <span class="bg-black/60 text-green-400 text-[10px] px-1.5 py-0.5 rounded border border-green-500/30">
+                                            <i class="fa-solid fa-check-circle mr-1"></i> AI Active
+                                        </span>
+                                    `;
+                                }
+                                // Start detection
+                                window.faceDetection.start(localVideo);
+                            })
+                            .catch(error => {
+                                console.error('Error loading face detection models:', error);
+                                if (statusElement) {
+                                    statusElement.innerHTML = `
+                                        <span class="bg-black/60 text-red-400 text-[10px] px-1.5 py-0.5 rounded border border-red-500/30">
+                                            <i class="fa-solid fa-exclamation-triangle mr-1"></i> AI Unavailable
+                                        </span>
+                                    `;
+                                }
+                            });
+                    } else {
+                        console.error('Face detection library not loaded');
+                        if (statusElement) {
+                            statusElement.innerHTML = `
+                                <span class="bg-black/60 text-red-400 text-[10px] px-1.5 py-0.5 rounded border border-red-500/30">
+                                    <i class="fa-solid fa-exclamation-triangle mr-1"></i> AI Library Missing
+                                </span>
+                            `;
+                        }
+                    }
+                }
+            }, 500);
+            
+            // Stop checking after 30 seconds
+            setTimeout(() => clearInterval(checkVideo), 30000);
+        }
+
+        // Initialize face detection after page load
+        window.addEventListener('load', () => {
+            setTimeout(initializeFaceDetectionForInterview, 2000);
+        });
+
+        // Also try when meeting initializes
+        if (typeof initializeMeeting === 'function') {
+            const originalInit = initializeMeeting;
+            window.initializeMeeting = function() {
+                originalInit();
+                setTimeout(initializeFaceDetectionForInterview, 3000);
+            };
+        }
+
+        // Listen for cheat alerts (Interviewer only)
+        {% if role == 'interviewer' %}
+        if (typeof socket !== 'undefined') {
+            socket.on('cheat-alert', (data) => {
+                console.warn('Cheat alert received:', data);
+                
+                // Show alert to interviewer
+                const alertMessage = `⚠️ Cheat Detection: ${data.message}`;
+                if (typeof showToast === 'function') {
+                    showToast(alertMessage);
+                } else {
+                    alert(alertMessage);
+                }
+                
+                // Add to AI tab for logging
+                const aiTab = document.getElementById('aiTab');
+                if (aiTab) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'p-3 bg-red-500/10 border border-red-500/20 rounded-lg mb-2';
+                    alertDiv.innerHTML = `
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-xs font-bold text-red-500">
+                                <i class="fa-solid fa-exclamation-triangle mr-1"></i> ${data.type.replace('-', ' ').toUpperCase()}
+                            </span>
+                            <span class="text-[10px] text-gray-500">${new Date(data.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p class="text-xs text-gray-400">${data.message}</p>
+                    `;
+                    aiTab.insertBefore(alertDiv, aiTab.firstChild);
+                }
+            });
+        }
+        {% endif %}
 
         // Update button states
         const micBtn = document.getElementById('toggleMic');
