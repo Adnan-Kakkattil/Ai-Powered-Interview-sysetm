@@ -200,6 +200,28 @@
                 transform: translateX(0);
             }
         }
+
+        @keyframes slideInUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutDown {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 
@@ -561,6 +583,33 @@
         const approveJoinBtn = document.getElementById('approveJoinBtn');
         const denyJoinBtn = document.getElementById('denyJoinBtn');
 
+        // Wait for socket connection before setting up handlers
+        socket.on('connect', () => {
+            console.log('Socket connected');
+            
+            // Interviewer: Join main room immediately to receive join requests
+            if (ROLE === 'interviewer') {
+                socket.emit('join', { room: ROOM_ID, username: USERNAME });
+                console.log('Interviewer joined room:', ROOM_ID);
+            }
+        });
+        
+        // Handle socket disconnection
+        socket.on('disconnect', () => {
+            console.log('Socket disconnected');
+            if (typeof showToast === 'function') {
+                showToast('Connection lost. Attempting to reconnect...');
+            }
+        });
+        
+        // Handle connection errors
+        socket.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            if (typeof showToast === 'function') {
+                showToast('Connection error. Please refresh the page.');
+            }
+        });
+
         // Candidate Flow
         if (ROLE === 'candidate' && JOIN_STATUS !== 'approved') {
             // Device Check
@@ -583,56 +632,117 @@
             // Ask to Join
             if (askToJoinBtn) {
                 askToJoinBtn.addEventListener('click', () => {
-                    socket.emit('request-join', { room: ROOM_ID, username: USERNAME });
-                    preJoinScreen.style.display = 'none';
-                    waitingScreen.style.display = 'flex';
+                    // Ensure socket is connected
+                    if (socket.connected) {
+                        socket.emit('request-join', { room: ROOM_ID, username: USERNAME });
+                        preJoinScreen.style.display = 'none';
+                        waitingScreen.style.display = 'flex';
 
-                    // Stop preview stream
-                    if (previewVideo.srcObject) {
-                        previewVideo.srcObject.getTracks().forEach(track => track.stop());
+                        // Stop preview stream
+                        if (previewVideo.srcObject) {
+                            previewVideo.srcObject.getTracks().forEach(track => track.stop());
+                        }
+                    } else {
+                        console.error('Socket not connected');
+                        alert('Connection error. Please refresh the page.');
                     }
                 });
             }
 
             // Listen for approval
-            socket.on('join-approved', () => {
+            socket.on('join-approved', (data) => {
+                console.log('Join approved, moving to main room');
                 waitingScreen.style.display = 'none';
-                mainContainer.style.display = 'flex'; // Use flex to match the new layout
-                initializeMeeting(); // Start WebRTC
+                mainContainer.style.display = 'flex';
+                
+                // Show success message
+                if (typeof showToast === 'function') {
+                    showToast('You have been approved! Joining the interview...');
+                }
+                
+                // Leave waiting room and join main room
+                socket.emit('leave', { room: `${ROOM_ID}_waiting`, username: USERNAME });
+                
+                // Small delay to ensure room transition
+                setTimeout(() => {
+                    socket.emit('join', { room: ROOM_ID, username: USERNAME });
+                    
+                    // Start WebRTC meeting
+                    if (typeof initializeMeeting === 'function') {
+                        initializeMeeting();
+                    }
+                }, 100);
             });
 
-            socket.on('join-rejected', () => {
-                alert("Your request to join was denied.");
+            socket.on('join-rejected', (data) => {
+                const message = data?.message || "Your request to join was denied.";
+                alert(message);
                 window.location.href = "{{ url_for('main.dashboard') }}";
             });
         } else {
-            // Interviewer or Approved Candidate
-            if (typeof initializeMeeting === 'function') {
+            // Interviewer or Approved Candidate - join immediately
+            socket.on('connect', () => {
+                if (typeof initializeMeeting === 'function') {
+                    initializeMeeting();
+                }
+            });
+            
+            // Also try immediately in case socket is already connected
+            if (socket.connected && typeof initializeMeeting === 'function') {
                 initializeMeeting();
             }
         }
 
-        // Interviewer Flow
+        // Interviewer Flow - Setup approval handlers
         if (ROLE === 'interviewer') {
             socket.on('join-request', (data) => {
+                console.log('Join request received:', data);
                 const userSpan = document.getElementById('requestingUser');
-                if (userSpan) userSpan.textContent = data.username;
-                if (approvalPopup) approvalPopup.style.display = 'block';
+                if (userSpan) userSpan.textContent = data.username || 'Candidate';
+                if (approvalPopup) {
+                    approvalPopup.style.display = 'block';
+                    // Show notification
+                    if (typeof showToast === 'function') {
+                        showToast(`${data.username || 'Candidate'} wants to join the interview`);
+                    }
+                    // Auto-hide after 30 seconds if not responded
+                    setTimeout(() => {
+                        if (approvalPopup.style.display === 'block') {
+                            approvalPopup.style.display = 'none';
+                        }
+                    }, 30000);
+                }
             });
 
             if (approveJoinBtn) {
                 approveJoinBtn.addEventListener('click', () => {
+                    console.log('Approving join request');
                     socket.emit('approve-join', { room: ROOM_ID });
                     if (approvalPopup) approvalPopup.style.display = 'none';
+                    if (typeof showToast === 'function') {
+                        showToast('Candidate approved and joining...');
+                    }
                 });
             }
 
             if (denyJoinBtn) {
                 denyJoinBtn.addEventListener('click', () => {
+                    console.log('Rejecting join request');
                     socket.emit('reject-join', { room: ROOM_ID });
                     if (approvalPopup) approvalPopup.style.display = 'none';
+                    if (typeof showToast === 'function') {
+                        showToast('Join request rejected');
+                    }
                 });
             }
+            
+            // Listen for candidate approval confirmation
+            socket.on('candidate-approved', (data) => {
+                console.log('Candidate approved:', data);
+                if (typeof showToast === 'function') {
+                    showToast('Candidate has joined the interview');
+                }
+            });
         }
     </script>
 </body>

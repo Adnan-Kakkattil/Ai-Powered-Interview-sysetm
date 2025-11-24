@@ -16,12 +16,20 @@ const config = {
 };
 
 function showToast(message) {
+    if (!toastContainer) {
+        console.log('Toast:', message);
+        return;
+    }
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = 'bg-purple-600 text-white px-4 py-2 rounded-lg shadow-lg mb-2 text-sm';
     toast.textContent = message;
+    toast.style.animation = 'slideInUp 0.3s ease-out';
     toastContainer.appendChild(toast);
     setTimeout(() => {
-        toast.remove();
+        toast.style.animation = 'slideOutDown 0.3s ease-out';
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
     }, 3000);
 }
 

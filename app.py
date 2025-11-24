@@ -29,8 +29,15 @@ def on_join(data):
     username = data.get('username')
     join_room(room)
     
+    # If user was in waiting room, leave it
+    user_info = connected_users.get(request.sid)
+    if user_info and user_info.get('waiting'):
+        waiting_room = user_info.get('room', '')
+        if waiting_room and waiting_room.endswith('_waiting'):
+            leave_room(waiting_room)
+    
     # Store user info for disconnect handling
-    connected_users[request.sid] = {'room': room, 'username': username}
+    connected_users[request.sid] = {'room': room, 'username': username, 'waiting': False}
     
     emit('user-joined', {'username': username}, room=room, include_self=False)
     emit('joined', room=room, include_self=False)
@@ -101,10 +108,13 @@ def on_chat_message(data):
 @socketio.on('request-join')
 def on_request_join(data):
     room = data['room']
-    username = data['username']
+    username = data.get('username')
     
     # Join waiting room to receive approval
     join_room(f"{room}_waiting")
+    
+    # Store user info for waiting room
+    connected_users[request.sid] = {'room': f"{room}_waiting", 'username': username, 'waiting': True}
     
     # Update DB status
     try:
@@ -131,8 +141,11 @@ def on_approve_join(data):
     except Exception as e:
         print(f"Error approving join: {e}")
         
-    # Notify candidate (in waiting room)
-    emit('join-approved', {}, room=f"{room}_waiting")
+    # Notify candidate (in waiting room) and move them to main room
+    emit('join-approved', {'room': room}, room=f"{room}_waiting")
+    
+    # Also emit to main room to notify interviewer
+    emit('candidate-approved', {'message': 'Candidate has been approved and joined'}, room=room)
 
 @socketio.on('reject-join')
 def on_reject_join(data):
@@ -148,7 +161,7 @@ def on_reject_join(data):
         print(f"Error rejecting join: {e}")
         
     # Notify candidate (in waiting room)
-    emit('join-rejected', {}, room=f"{room}_waiting")
+    emit('join-rejected', {'message': 'Your request to join was denied'}, room=f"{room}_waiting")
 
 @socketio.on('offer')
 def on_offer(data):
