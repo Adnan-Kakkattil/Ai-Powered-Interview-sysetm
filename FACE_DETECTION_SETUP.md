@@ -59,3 +59,4 @@ Edit `static/js/face-detection.js`:
 ### Add More Detection Types
 Extend `analyzeFaceDetections()` function in `static/js/face-detection.js`
 
+
