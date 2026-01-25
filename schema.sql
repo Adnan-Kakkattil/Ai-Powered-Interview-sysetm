@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS users (
     role ENUM('admin', 'candidate') NOT NULL,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(30),
+    target_role VARCHAR(100),
+    experience_level VARCHAR(100),
+    resume_path VARCHAR(255),
+    resume_original_name VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -12,6 +12,37 @@ def update_db():
         cursor = db.cursor()
         
         print("Applying schema updates...")
+
+        # Add optional candidate profile columns
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN phone VARCHAR(30) NULL")
+            print("Added phone column to users table.")
+        except Exception as e:
+            print(f"Column phone might already exist: {e}")
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN target_role VARCHAR(100) NULL")
+            print("Added target_role column to users table.")
+        except Exception as e:
+            print(f"Column target_role might already exist: {e}")
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN experience_level VARCHAR(100) NULL")
+            print("Added experience_level column to users table.")
+        except Exception as e:
+            print(f"Column experience_level might already exist: {e}")
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN resume_path VARCHAR(255) NULL")
+            print("Added resume_path column to users table.")
+        except Exception as e:
+            print(f"Column resume_path might already exist: {e}")
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN resume_original_name VARCHAR(255) NULL")
+            print("Added resume_original_name column to users table.")
+        except Exception as e:
+            print(f"Column resume_original_name might already exist: {e}")
         
         # Add code_content column
         try:

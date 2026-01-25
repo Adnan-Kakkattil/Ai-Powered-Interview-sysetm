@@ -163,7 +163,7 @@
         {% endif %}
         {% endwith %}
 
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             <div class="glass-panel p-8 rounded-2xl space-y-8">
 
                 <!-- Section 1: Personal Information -->
@@ -223,7 +223,7 @@
                         <!-- Role -->
                         <div>
                             <label class="block text-xs font-medium text-gray-400 mb-1.5 ml-1">TARGET ROLE</label>
-                            <select name="role" class="input-glass w-full rounded-lg px-4 py-3 text-sm text-gray-300">
+                            <select name="target_role" class="input-glass w-full rounded-lg px-4 py-3 text-sm text-gray-300">
                                 <option>Frontend Developer</option>
                                 <option>Backend Developer</option>
                                 <option>Full Stack Engineer</option>
@@ -235,7 +235,7 @@
                         <!-- Experience -->
                         <div>
                             <label class="block text-xs font-medium text-gray-400 mb-1.5 ml-1">EXPERIENCE LEVEL</label>
-                            <select name="experience"
+                            <select name="experience_level"
                                 class="input-glass w-full rounded-lg px-4 py-3 text-sm text-gray-300">
                                 <option>Entry Level (0-2 yrs)</option>
                                 <option>Mid Level (3-5 yrs)</option>
@@ -247,13 +247,23 @@
                         <!-- Resume Upload -->
                         <div class="col-span-2">
                             <label class="block text-xs font-medium text-gray-400 mb-1.5 ml-1">RESUME / CV</label>
-                            <div class="upload-zone rounded-xl p-8 text-center cursor-pointer group">
+                            <!-- Hidden file input (real upload field) -->
+                            <input
+                                id="resumeInput"
+                                name="resume"
+                                type="file"
+                                class="hidden"
+                                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            >
+
+                            <div id="uploadZone" class="upload-zone rounded-xl p-8 text-center cursor-pointer group">
                                 <div
                                     class="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
                                     <i class="fa-solid fa-cloud-arrow-up text-purple-400 text-xl"></i>
                                 </div>
                                 <p class="text-sm text-gray-300 font-medium">Click to upload or drag and drop</p>
-                                <p class="text-xs text-gray-500 mt-1">PDF, DOCX up to 10MB</p>
+                                <p class="text-xs text-gray-500 mt-1">PDF, DOC, DOCX up to 10MB</p>
+                                <p id="resumeFilename" class="text-xs text-purple-300 mt-3 hidden"></p>
                             </div>
                         </div>
                     </div>
@@ -323,6 +333,60 @@
         </form>
 
     </main>
+
+    <script>
+        // Resume upload UI -> actual <input type="file"> binding
+        const uploadZone = document.getElementById('uploadZone');
+        const resumeInput = document.getElementById('resumeInput');
+        const resumeFilename = document.getElementById('resumeFilename');
+
+        function setResumeFile(file) {
+            if (!file) return;
+            resumeInput.files = new DataTransfer();
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            resumeInput.files = dt.files;
+
+            if (resumeFilename) {
+                resumeFilename.textContent = `Selected: ${file.name}`;
+                resumeFilename.classList.remove('hidden');
+            }
+        }
+
+        if (uploadZone && resumeInput) {
+            uploadZone.addEventListener('click', () => resumeInput.click());
+
+            resumeInput.addEventListener('change', () => {
+                const file = resumeInput.files && resumeInput.files[0];
+                if (file && resumeFilename) {
+                    resumeFilename.textContent = `Selected: ${file.name}`;
+                    resumeFilename.classList.remove('hidden');
+                }
+            });
+
+            // Drag & drop
+            ['dragenter', 'dragover'].forEach(evt => {
+                uploadZone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    uploadZone.classList.add('bg-purple-500/5');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(evt => {
+                uploadZone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    uploadZone.classList.remove('bg-purple-500/5');
+                });
+            });
+
+            uploadZone.addEventListener('drop', (e) => {
+                const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                if (file) setResumeFile(file);
+            });
+        }
+    </script>
 
 </body>
 

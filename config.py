@@ -10,3 +10,5 @@ class Config:
     MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', '')
     MYSQL_DB = os.environ.get('MYSQL_DB', 'interview_system')
     MYSQL_CURSORCLASS = 'DictCursor'
+    # Upload limits (resume/CV)
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', str(10 * 1024 * 1024)))  # 10MB

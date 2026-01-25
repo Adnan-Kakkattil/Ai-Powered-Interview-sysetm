@@ -1,12 +1,54 @@
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, current_app
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 import MySQLdb.cursors
 from extensions import mysql
+import os
+import uuid
 
 bp = Blueprint('main', __name__)
 
 def get_db():
     return mysql
+
+ALLOWED_RESUME_EXTENSIONS = {"pdf", "doc", "docx"}
+MAX_RESUME_BYTES = 10 * 1024 * 1024  # 10MB
+
+def _allowed_resume_filename(filename: str) -> bool:
+    if not filename or "." not in filename:
+        return False
+    ext = filename.rsplit(".", 1)[1].lower()
+    return ext in ALLOWED_RESUME_EXTENSIONS
+
+def _ensure_candidate_profile_columns(cursor):
+    """
+    Ensure optional candidate-profile columns exist on `users`.
+    Keeps the app working even if the DB was created with an older schema.
+    """
+    cursor.execute("SHOW COLUMNS FROM users")
+    rows = cursor.fetchall()
+    existing = set()
+    for r in rows:
+        # DictCursor => {'Field': 'colname', ...}
+        if isinstance(r, dict):
+            existing.add(r.get("Field"))
+        else:
+            existing.add(r[0])
+
+    additions = []
+    if "phone" not in existing:
+        additions.append("ADD COLUMN phone VARCHAR(30) NULL")
+    if "target_role" not in existing:
+        additions.append("ADD COLUMN target_role VARCHAR(100) NULL")
+    if "experience_level" not in existing:
+        additions.append("ADD COLUMN experience_level VARCHAR(100) NULL")
+    if "resume_path" not in existing:
+        additions.append("ADD COLUMN resume_path VARCHAR(255) NULL")
+    if "resume_original_name" not in existing:
+        additions.append("ADD COLUMN resume_original_name VARCHAR(255) NULL")
+
+    if additions:
+        cursor.execute(f"ALTER TABLE users {', '.join(additions)}")
 
 @bp.route('/')
 def index():
@@ -41,15 +83,100 @@ def add_candidate():
     if request.method == 'POST':
         name = request.form['name']
         email = request.form['email']
+        phone = request.form.get('phone') or None
+        target_role = request.form.get('target_role') or None
+        experience_level = request.form.get('experience_level') or None
         username = request.form['username']
         password = request.form['password']
         
         hashed_password = generate_password_hash(password)
         cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
+
+        # Ensure DB has columns for optional profile info + resume
+        try:
+            _ensure_candidate_profile_columns(cursor)
+            get_db().connection.commit()
+        except Exception as e:
+            # If ALTER fails (permissions), we can still create candidate without extra fields.
+            print(f"Warning: could not ensure candidate profile columns: {e}")
+
+        # Handle resume upload (optional)
+        resume_file = request.files.get("resume")
+        resume_rel_path = None
+        resume_original_name = None
+
+        try:
+            if resume_file and resume_file.filename:
+                if not _allowed_resume_filename(resume_file.filename):
+                    flash('Invalid resume file type. Please upload PDF, DOC, or DOCX.', 'danger')
+                    cursor.close()
+                    return render_template('add_candidate.html')
+
+                # Size check (best-effort; Flask MAX_CONTENT_LENGTH is even better)
+                try:
+                    resume_file.stream.seek(0, os.SEEK_END)
+                    size = resume_file.stream.tell()
+                    resume_file.stream.seek(0)
+                    if size > MAX_RESUME_BYTES:
+                        flash('Resume file is too large. Max allowed size is 10MB.', 'danger')
+                        cursor.close()
+                        return render_template('add_candidate.html')
+                except Exception:
+                    # If the stream isn't seekable, rely on server-side max config / web server limits
+                    pass
+
+                upload_dir = os.path.join(current_app.root_path, "uploads", "resumes")
+                os.makedirs(upload_dir, exist_ok=True)
+
+                original = resume_file.filename
+                safe_name = secure_filename(original)
+                unique_name = f"{uuid.uuid4().hex}_{safe_name}" if safe_name else f"{uuid.uuid4().hex}.bin"
+                save_path = os.path.join(upload_dir, unique_name)
+                resume_file.save(save_path)
+
+                resume_rel_path = f"uploads/resumes/{unique_name}"
+                resume_original_name = original
+        except Exception as e:
+            flash(f'Error uploading resume: {e}', 'danger')
+            cursor.close()
+            return render_template('add_candidate.html')
         
         try:
-            cursor.execute('INSERT INTO users (username, password_hash, role, name, email) VALUES (%s, %s, "candidate", %s, %s)',
-                           (username, hashed_password, name, email))
+            # Build INSERT dynamically based on existing columns
+            cursor.execute("SHOW COLUMNS FROM users")
+            cols = cursor.fetchall()
+            existing = set()
+            for r in cols:
+                if isinstance(r, dict):
+                    existing.add(r.get("Field"))
+                else:
+                    existing.add(r[0])
+
+            insert_cols = ["username", "password_hash", "role", "name", "email"]
+            insert_vals = [username, hashed_password, "candidate", name, email]
+
+            if "phone" in existing:
+                insert_cols.append("phone")
+                insert_vals.append(phone)
+            if "target_role" in existing:
+                insert_cols.append("target_role")
+                insert_vals.append(target_role)
+            if "experience_level" in existing:
+                insert_cols.append("experience_level")
+                insert_vals.append(experience_level)
+            if "resume_path" in existing:
+                insert_cols.append("resume_path")
+                insert_vals.append(resume_rel_path)
+            if "resume_original_name" in existing:
+                insert_cols.append("resume_original_name")
+                insert_vals.append(resume_original_name)
+
+            placeholders = ", ".join(["%s"] * len(insert_cols))
+            col_list = ", ".join(insert_cols)
+            cursor.execute(
+                f'INSERT INTO users ({col_list}) VALUES ({placeholders})',
+                tuple(insert_vals)
+            )
             get_db().connection.commit()
             flash('Candidate added successfully.', 'success')
             return redirect(url_for('main.dashboard'))
