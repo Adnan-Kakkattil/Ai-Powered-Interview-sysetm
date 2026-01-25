@@ -325,6 +325,15 @@
             <!-- Right: Actions -->
             <div class="flex items-center gap-3">
                 {% if role == 'interviewer' %}
+                    {% if resume_url %}
+                    <button
+                        id="viewResumeBtn"
+                        type="button"
+                        class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-4 py-1.5 rounded transition-colors flex items-center gap-2 border border-gray-700"
+                    >
+                        <i class="fa-solid fa-file-lines"></i> View Resume
+                    </button>
+                    {% endif %}
                     {% if interview.status != 'completed' %}
                     <button
                         id="completeInterviewBtn"
@@ -339,6 +348,15 @@
                     <i class="fa-solid fa-phone-slash"></i> End Interview
                 </button>
                 {% else %}
+                {% if resume_url %}
+                <button
+                    id="viewResumeBtn"
+                    type="button"
+                    class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-4 py-1.5 rounded transition-colors flex items-center gap-2 border border-gray-700"
+                >
+                    <i class="fa-solid fa-file-lines"></i> View Resume
+                </button>
+                {% endif %}
                 <a href="{{ url_for('main.dashboard') }}"
                     class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-1.5 rounded transition-colors flex items-center gap-2">
                     <i class="fa-solid fa-phone-slash"></i> Leave Call
@@ -510,6 +528,53 @@
 
     <div id="toast-container" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50"></div>
 
+    <!-- Resume Modal -->
+    {% if resume_url %}
+    <div id="resumeModal" class="overlay-screen" style="display: none;">
+        <div class="overlay-card" style="max-width: 1000px; width: 95%; text-align: left;">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Candidate Resume</h2>
+                    <p class="text-xs text-gray-400 mt-1">
+                        {{ resume_original_name or 'Resume' }}
+                    </p>
+                </div>
+                <button
+                    id="closeResumeBtn"
+                    class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-xs font-bold"
+                    type="button"
+                >
+                    Close
+                </button>
+            </div>
+
+            <div class="mt-4">
+                <iframe
+                    id="resumeFrame"
+                    src=""
+                    class="w-full rounded-lg border border-gray-700"
+                    style="height: 70vh; background: #0a0a0a;"
+                ></iframe>
+
+                <div id="resumeUnsupported" class="hidden mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <div class="text-yellow-400 text-sm font-bold mb-1">
+                        Preview not available for this file type.
+                    </div>
+                    <div class="text-gray-300 text-sm">
+                        Click below to open/download the resume:
+                        <a
+                            id="resumeOpenLink"
+                            href="{{ resume_url }}"
+                            target="_blank"
+                            class="text-purple-300 underline"
+                        >Open resume</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Face Detection Library -->
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
     
@@ -520,6 +585,9 @@
         const USERNAME = "{{ session.name }}";
         const ROLE = "{{ role }}";
         const JOIN_STATUS = "{{ join_status }}";
+        const RESUME_URL = {{ (resume_url or None) | tojson }};
+        const RESUME_NAME = {{ (resume_original_name or 'Resume') | tojson }};
+        const RESUME_EXT = {{ (resume_ext or '') | tojson }};
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
@@ -539,6 +607,58 @@
         if (chatMsgs) {
             chatMsgs.scrollTop = chatMsgs.scrollHeight;
         }
+
+        // Resume modal logic
+        (function () {
+            const btn = document.getElementById('viewResumeBtn');
+            const modal = document.getElementById('resumeModal');
+            const closeBtn = document.getElementById('closeResumeBtn');
+            const frame = document.getElementById('resumeFrame');
+            const unsupported = document.getElementById('resumeUnsupported');
+            const openLink = document.getElementById('resumeOpenLink');
+
+            if (!btn || !modal || !RESUME_URL) return;
+
+            function openModal() {
+                modal.style.display = 'flex';
+                const ext = (RESUME_EXT || '').toLowerCase();
+                const canPreview = ext === 'pdf';
+
+                if (openLink) openLink.href = RESUME_URL;
+
+                if (canPreview) {
+                    if (unsupported) unsupported.classList.add('hidden');
+                    if (frame) {
+                        frame.classList.remove('hidden');
+                        frame.src = RESUME_URL;
+                    }
+                } else {
+                    if (frame) {
+                        frame.src = '';
+                        frame.classList.add('hidden');
+                    }
+                    if (unsupported) unsupported.classList.remove('hidden');
+                }
+            }
+
+            function closeModal() {
+                modal.style.display = 'none';
+                if (frame) frame.src = '';
+            }
+
+            btn.addEventListener('click', openModal);
+            if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+            // Click outside card to close
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            // ESC to close
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.style.display === 'flex') closeModal();
+            });
+        })();
 
         // Initialize Face Detection when video is ready
         function initializeFaceDetectionForInterview() {

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, current_app
+from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, current_app, send_file, abort
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 import MySQLdb.cursors
@@ -256,8 +256,87 @@ def interview(meeting_link):
     
     # Fetch join status
     join_status = interview_data.get('candidate_join_status', 'pending')
-    
-    return render_template('interview.html', meeting_link=meeting_link, interview=interview_data, role=role, chat_history=chat_history, join_status=join_status)
+
+    # Fetch candidate resume info (optional; older DBs might not have columns)
+    resume_path = None
+    resume_original_name = None
+    resume_ext = None
+    try:
+        cursor.execute('SELECT resume_path, resume_original_name FROM users WHERE id = %s', (interview_data['candidate_id'],))
+        r = cursor.fetchone()
+        if r:
+            resume_path = r.get('resume_path')
+            resume_original_name = r.get('resume_original_name')
+            if resume_original_name and "." in resume_original_name:
+                resume_ext = resume_original_name.rsplit(".", 1)[1].lower()
+            elif resume_path and "." in resume_path:
+                resume_ext = resume_path.rsplit(".", 1)[1].lower()
+    except Exception as e:
+        # Ignore if columns don't exist
+        print(f"Resume lookup skipped: {e}")
+
+    resume_url = url_for('main.interview_resume', meeting_link=meeting_link) if resume_path else None
+
+    return render_template(
+        'interview.html',
+        meeting_link=meeting_link,
+        interview=interview_data,
+        role=role,
+        chat_history=chat_history,
+        join_status=join_status,
+        resume_url=resume_url,
+        resume_original_name=resume_original_name,
+        resume_ext=resume_ext
+    )
+
+
+@bp.route('/interview/<meeting_link>/resume')
+def interview_resume(meeting_link):
+    """Serve the candidate resume for this interview (authorized users only)."""
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+
+    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute('SELECT * FROM interviews WHERE meeting_link = %s', (meeting_link,))
+    interview_data = cursor.fetchone()
+    if not interview_data:
+        cursor.close()
+        abort(404)
+
+    user_id = session.get('user_id')
+    if user_id != interview_data['interviewer_id'] and user_id != interview_data['candidate_id']:
+        cursor.close()
+        abort(403)
+
+    try:
+        cursor.execute('SELECT resume_path, resume_original_name FROM users WHERE id = %s', (interview_data['candidate_id'],))
+        user_row = cursor.fetchone()
+    except Exception:
+        cursor.close()
+        abort(404)
+
+    cursor.close()
+
+    if not user_row:
+        abort(404)
+
+    resume_path = user_row.get('resume_path')
+    resume_original_name = user_row.get('resume_original_name') or 'resume'
+
+    if not resume_path:
+        abort(404)
+
+    # Prevent path traversal: only allow files under uploads/resumes
+    base_dir = os.path.abspath(os.path.join(current_app.root_path, 'uploads', 'resumes'))
+    abs_path = os.path.abspath(os.path.join(current_app.root_path, resume_path))
+    if not abs_path.startswith(base_dir + os.sep):
+        abort(404)
+
+    if not os.path.exists(abs_path):
+        abort(404)
+
+    # Inline for PDF preview; other formats will download/open depending on browser
+    return send_file(abs_path, as_attachment=False, download_name=resume_original_name)
 
 @bp.route('/interview/<meeting_link>/complete', methods=['POST'])
 def complete_interview(meeting_link):

@@ -207,4 +207,5 @@ def on_cheat_detected(data):
     }, room=room)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    # Bind to all interfaces for LAN/Docker access
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)

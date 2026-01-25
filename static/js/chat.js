@@ -6,29 +6,34 @@ const sendChatBtn = document.getElementById('sendChat');
 const chatMessages = document.getElementById('chatMessages');
 
 // Toggle Chat Sidebar
-chatBtn.addEventListener('click', () => {
-    chatSidebar.classList.toggle('open');
-    if (chatSidebar.classList.contains('open')) {
-        chatBtn.classList.add('active-off'); // Highlight button when open
-        chatInput.focus();
-    } else {
-        chatBtn.classList.remove('active-off');
-    }
-});
+if (chatBtn && chatSidebar) {
+    chatBtn.addEventListener('click', () => {
+        chatSidebar.classList.toggle('open');
+        if (chatSidebar.classList.contains('open')) {
+            chatBtn.classList.add('active-off'); // Highlight button when open
+            if (chatInput) chatInput.focus();
+        } else {
+            chatBtn.classList.remove('active-off');
+        }
+    });
+}
 
-closeChatBtn.addEventListener('click', () => {
-    chatSidebar.classList.remove('open');
-    chatBtn.classList.remove('active-off');
-});
+if (closeChatBtn && chatSidebar) {
+    closeChatBtn.addEventListener('click', () => {
+        chatSidebar.classList.remove('open');
+        if (chatBtn) chatBtn.classList.remove('active-off');
+    });
+}
 
 // Send Message
 function sendMessage() {
+    if (!chatInput) return;
     const message = chatInput.value.trim();
     if (message) {
         const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         // Emit to server
-        socket.emit('chat-message', {
+        if (typeof socket !== 'undefined') socket.emit('chat-message', {
             room: ROOM_ID,
             message: message,
             username: USERNAME,
@@ -42,39 +47,49 @@ function sendMessage() {
     }
 }
 
-sendChatBtn.addEventListener('click', sendMessage);
+if (sendChatBtn) sendChatBtn.addEventListener('click', sendMessage);
 
-chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        sendMessage();
-    }
-});
+if (chatInput) {
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+}
 
 // Receive Message
-socket.on('chat-message', (data) => {
-    addMessageToUI(data.username, data.message, data.timestamp, false);
+if (typeof socket !== 'undefined') {
+    socket.on('chat-message', (data) => {
+        addMessageToUI(data.username, data.message, data.timestamp, false);
 
-    // If sidebar is closed, show a notification dot or toast
-    if (!chatSidebar.classList.contains('open')) {
-        showToast(`New message from ${data.username}`);
-    }
-});
+        // If sidebar exists and is closed, show toast
+        if (chatSidebar && !chatSidebar.classList.contains('open')) {
+            if (typeof showToast === 'function') showToast(`New message from ${data.username}`);
+        }
+    });
+}
 
 function addMessageToUI(username, message, timestamp, isSelf) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${isSelf ? 'self' : 'remote'}`;
+    if (!chatMessages) return;
+
+    // Match current Tailwind chat layout in templates/interview.html
+    const wrapper = document.createElement('div');
+    wrapper.className = `flex flex-col ${isSelf ? 'items-end' : 'items-start'}`;
 
     const metaDiv = document.createElement('div');
-    metaDiv.className = 'message-meta';
-    metaDiv.innerHTML = `<span class="message-user">${isSelf ? 'You' : username}</span> <span class="message-time">${timestamp}</span>`;
+    metaDiv.className = 'text-[10px] text-gray-500 mb-1';
+    metaDiv.textContent = `${isSelf ? 'You' : username} • ${timestamp}`;
 
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    contentDiv.textContent = message;
+    const bubble = document.createElement('div');
+    bubble.className = `max-w-[85%] px-3 py-2 rounded-lg text-xs ${
+        isSelf
+            ? 'bg-purple-600/20 text-purple-200 border border-purple-600/30'
+            : 'bg-gray-800 text-gray-300 border border-gray-700'
+    }`;
+    bubble.textContent = message;
 
-    messageDiv.appendChild(metaDiv);
-    messageDiv.appendChild(contentDiv);
-
-    chatMessages.appendChild(messageDiv);
+    wrapper.appendChild(metaDiv);
+    wrapper.appendChild(bubble);
+    chatMessages.appendChild(wrapper);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
