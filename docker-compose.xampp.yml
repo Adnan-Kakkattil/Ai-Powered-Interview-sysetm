@@ -1,0 +1,36 @@
+version: '3.8'
+
+# Alternative docker-compose file for using existing XAMPP MySQL
+# Usage: docker compose -f docker-compose.xampp.yml up --build
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: interview_system_web
+    ports:
+      - "5000:5000"
+    environment:
+      - MYSQL_HOST=host.docker.internal  # Connect to host MySQL (XAMPP)
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=  # XAMPP default is empty
+      - MYSQL_DB=interview_system
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - MAX_CONTENT_LENGTH=10485760
+    restart: always
+    networks:
+      - interview_network
+    volumes:
+      - ./uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allows container to access host services
+
+networks:
+  interview_network:
+    driver: bridge
+
+# Note: You need to:
+# 1. Ensure XAMPP MySQL is running
+# 2. Create the database: CREATE DATABASE interview_system;
+# 3. Run: python init_db.py (or import schema.sql manually)
