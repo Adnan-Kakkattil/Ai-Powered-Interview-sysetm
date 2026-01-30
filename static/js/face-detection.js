@@ -10,8 +10,19 @@ let cheatWarnings = {
     noFace: 0,
     multipleFaces: 0,
     lookingAway: 0,
-    faceTooFar: 0
+    faceTooFar: 0,
+    eyeMovementLeft: 0,
+    eyeMovementRight: 0,
+    eyeMovementUp: 0,
+    eyeMovementDown: 0,
+    rapidEyeMovement: 0
 };
+
+// Eye movement tracking
+let eyeMovementHistory = [];
+let lastEyePosition = { left: null, right: null };
+let eyeMovementThreshold = 0.15; // Threshold for detecting significant eye movement
+let rapidMovementWindow = 5; // Number of frames to check for rapid movement
 
 // Initialize face detection models
 async function loadFaceDetectionModels() {
@@ -58,6 +69,119 @@ function calculateEAR(eyeLandmarks) {
     // EAR formula - lower value means eyes are more closed
     const ear = (vertical1 + vertical2) / (2.0 * horizontal);
     return ear;
+}
+
+// Calculate eye center position (for gaze direction)
+function calculateEyeCenter(eyeLandmarks) {
+    if (!eyeLandmarks || eyeLandmarks.length < 6) return null;
+    
+    const points = eyeLandmarks.map(p => ({ x: p.x, y: p.y }));
+    
+    // Calculate center as average of all points
+    const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+    const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+    
+    return { x: centerX, y: centerY };
+}
+
+// Calculate eye bounding box
+function calculateEyeBounds(eyeLandmarks) {
+    if (!eyeLandmarks || eyeLandmarks.length < 6) return null;
+    
+    const points = eyeLandmarks.map(p => ({ x: p.x, y: p.y }));
+    
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+    const minY = Math.min(...points.map(p => p.y));
+    const maxY = Math.max(...points.map(p => p.y));
+    
+    return {
+        minX, maxX, minY, maxY,
+        width: maxX - minX,
+        height: maxY - minY,
+        centerX: (minX + maxX) / 2,
+        centerY: (minY + maxY) / 2
+    };
+}
+
+// Detect gaze direction based on eye position relative to eye bounds
+function detectGazeDirection(leftEye, rightEye) {
+    if (!leftEye || !rightEye || leftEye.length < 6 || rightEye.length < 6) {
+        return { direction: 'center', confidence: 0 };
+    }
+    
+    const leftBounds = calculateEyeBounds(leftEye);
+    const rightBounds = calculateEyeBounds(rightEye);
+    
+    if (!leftBounds || !rightBounds) {
+        return { direction: 'center', confidence: 0 };
+    }
+    
+    // Calculate relative position of eye center within bounds
+    // Normalize to -1 to 1 range
+    const leftCenter = calculateEyeCenter(leftEye);
+    const rightCenter = calculateEyeCenter(rightEye);
+    
+    if (!leftCenter || !rightCenter) {
+        return { direction: 'center', confidence: 0 };
+    }
+    
+    // Horizontal gaze (left/right)
+    const leftHorizontal = ((leftCenter.x - leftBounds.centerX) / (leftBounds.width / 2));
+    const rightHorizontal = ((rightCenter.x - rightBounds.centerX) / (rightBounds.width / 2));
+    const avgHorizontal = (leftHorizontal + rightHorizontal) / 2;
+    
+    // Vertical gaze (up/down)
+    const leftVertical = ((leftCenter.y - leftBounds.centerY) / (leftBounds.height / 2));
+    const rightVertical = ((rightCenter.y - rightBounds.centerY) / (rightBounds.height / 2));
+    const avgVertical = (leftVertical + rightVertical) / 2;
+    
+    // Determine primary direction
+    const horizontalAbs = Math.abs(avgHorizontal);
+    const verticalAbs = Math.abs(avgVertical);
+    
+    let direction = 'center';
+    let confidence = 0;
+    
+    if (horizontalAbs > eyeMovementThreshold || verticalAbs > eyeMovementThreshold) {
+        if (horizontalAbs > verticalAbs) {
+            direction = avgHorizontal > 0 ? 'right' : 'left';
+            confidence = Math.min(horizontalAbs, 1.0);
+        } else {
+            direction = avgVertical > 0 ? 'down' : 'up';
+            confidence = Math.min(verticalAbs, 1.0);
+        }
+    }
+    
+    return { direction, confidence, horizontal: avgHorizontal, vertical: avgVertical };
+}
+
+// Track eye movement patterns
+function trackEyeMovement(gazeDirection, timestamp) {
+    // Add to history
+    eyeMovementHistory.push({
+        direction: gazeDirection.direction,
+        confidence: gazeDirection.confidence,
+        timestamp: timestamp || Date.now()
+    });
+    
+    // Keep only recent history (last 2 seconds at 500ms intervals = 4 entries)
+    if (eyeMovementHistory.length > 4) {
+        eyeMovementHistory.shift();
+    }
+    
+    // Detect rapid eye movement
+    if (eyeMovementHistory.length >= rapidMovementWindow) {
+        const recentMovements = eyeMovementHistory.slice(-rapidMovementWindow);
+        const uniqueDirections = new Set(recentMovements.map(m => m.direction));
+        
+        // If multiple different directions in short time, it's rapid movement
+        if (uniqueDirections.size >= 3 && !uniqueDirections.has('center')) {
+            return 'rapid';
+        }
+    }
+    
+    return gazeDirection.direction;
 }
 
 // Detect if person is looking at screen
@@ -229,6 +353,14 @@ function analyzeFaceDetections(detections, videoElement) {
         const face = detections[0];
         const landmarks = face.landmarks;
         
+        // Get eye landmarks
+        const leftEye = landmarks.leftEye || [];
+        const rightEye = landmarks.rightEye || [];
+        
+        // Detect gaze direction
+        const gazeDirection = detectGazeDirection(leftEye, rightEye);
+        const movementType = trackEyeMovement(gazeDirection);
+        
         // Check if looking at screen
         const lookingAtScreen = isLookingAtScreen(landmarks);
         
@@ -247,7 +379,7 @@ function analyzeFaceDetections(detections, videoElement) {
             cheatWarnings.faceTooFar = 0;
         }
         
-        // Not looking at screen
+        // Not looking at screen (general)
         if (!lookingAtScreen) {
             cheatWarnings.lookingAway++;
             if (cheatWarnings.lookingAway > 5) {
@@ -256,6 +388,57 @@ function analyzeFaceDetections(detections, videoElement) {
         } else {
             cheatWarnings.lookingAway = 0;
         }
+        
+        // Specific eye movement detection
+        if (gazeDirection.direction !== 'center' && gazeDirection.confidence > eyeMovementThreshold) {
+            // Detect specific directions
+            if (gazeDirection.direction === 'left') {
+                cheatWarnings.eyeMovementLeft++;
+                if (cheatWarnings.eyeMovementLeft > 4) { // 2 seconds
+                    triggerCheatWarning('Eyes looking left - Please look at screen', 'eye-movement-left');
+                    cheatWarnings.eyeMovementLeft = 0; // Reset after alert
+                }
+            } else if (gazeDirection.direction === 'right') {
+                cheatWarnings.eyeMovementRight++;
+                if (cheatWarnings.eyeMovementRight > 4) {
+                    triggerCheatWarning('Eyes looking right - Please look at screen', 'eye-movement-right');
+                    cheatWarnings.eyeMovementRight = 0;
+                }
+            } else if (gazeDirection.direction === 'up') {
+                cheatWarnings.eyeMovementUp++;
+                if (cheatWarnings.eyeMovementUp > 4) {
+                    triggerCheatWarning('Eyes looking up - Please look at screen', 'eye-movement-up');
+                    cheatWarnings.eyeMovementUp = 0;
+                }
+            } else if (gazeDirection.direction === 'down') {
+                cheatWarnings.eyeMovementDown++;
+                if (cheatWarnings.eyeMovementDown > 4) {
+                    triggerCheatWarning('Eyes looking down - Please look at screen', 'eye-movement-down');
+                    cheatWarnings.eyeMovementDown = 0;
+                }
+            }
+        } else {
+            // Reset counters when looking center
+            cheatWarnings.eyeMovementLeft = 0;
+            cheatWarnings.eyeMovementRight = 0;
+            cheatWarnings.eyeMovementUp = 0;
+            cheatWarnings.eyeMovementDown = 0;
+        }
+        
+        // Rapid eye movement detection
+        if (movementType === 'rapid') {
+            cheatWarnings.rapidEyeMovement++;
+            if (cheatWarnings.rapidEyeMovement > 2) {
+                triggerCheatWarning('Rapid eye movement detected - Please maintain focus', 'rapid-eye-movement');
+                cheatWarnings.rapidEyeMovement = 0;
+            }
+        } else {
+            cheatWarnings.rapidEyeMovement = 0;
+        }
+        
+        // Update last eye position for tracking
+        lastEyePosition.left = calculateEyeCenter(leftEye);
+        lastEyePosition.right = calculateEyeCenter(rightEye);
         
         // Reset other warnings
         cheatWarnings.noFace = 0;
@@ -278,10 +461,13 @@ function analyzeFaceDetections(detections, videoElement) {
 
 // Trigger cheat warning
 function triggerCheatWarning(message, type) {
-    console.warn('Cheat detection:', message);
+    console.warn('Cheat detection:', message, 'Type:', type);
     
     // Show visual warning
     showCheatWarning(message, type);
+    
+    // Play alert sound (if available)
+    playAlertSound();
     
     // Emit warning to server (for interviewer to see)
     if (typeof socket !== 'undefined' && socket && typeof ROOM_ID !== 'undefined') {
@@ -289,15 +475,57 @@ function triggerCheatWarning(message, type) {
             room: ROOM_ID,
             type: type,
             message: message,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            severity: getSeverityLevel(type)
         });
     }
     
-    // Reset warning counter after showing
+    // Reset warning counter after showing (only for specific types)
     if (type === 'no-face') cheatWarnings.noFace = 0;
     if (type === 'multiple-faces') cheatWarnings.multipleFaces = 0;
     if (type === 'looking-away') cheatWarnings.lookingAway = 0;
     if (type === 'face-too-far') cheatWarnings.faceTooFar = 0;
+    // Eye movement warnings are reset in analyzeFaceDetections
+}
+
+// Get severity level for different alert types
+function getSeverityLevel(type) {
+    const severityMap = {
+        'no-face': 'high',
+        'multiple-faces': 'high',
+        'rapid-eye-movement': 'medium',
+        'eye-movement-left': 'low',
+        'eye-movement-right': 'low',
+        'eye-movement-up': 'low',
+        'eye-movement-down': 'low',
+        'looking-away': 'medium',
+        'face-too-far': 'medium'
+    };
+    return severityMap[type] || 'low';
+}
+
+// Play alert sound
+function playAlertSound() {
+    try {
+        // Create audio context for beep sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800; // Beep frequency
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+    } catch (error) {
+        console.log('Audio alert not available:', error);
+    }
 }
 
 // Show visual warning on screen
@@ -308,26 +536,46 @@ function showCheatWarning(message, type) {
         existingWarning.remove();
     }
     
+    // Determine warning color based on severity
+    const severity = getSeverityLevel(type);
+    let bgColor = 'bg-red-600';
+    let icon = 'fa-exclamation-triangle';
+    
+    if (severity === 'high') {
+        bgColor = 'bg-red-700';
+        icon = 'fa-exclamation-circle';
+    } else if (severity === 'medium') {
+        bgColor = 'bg-yellow-600';
+        icon = 'fa-exclamation-triangle';
+    } else {
+        bgColor = 'bg-orange-600';
+        icon = 'fa-eye';
+    }
+    
     // Create warning element
     const warning = document.createElement('div');
     warning.id = 'cheat-warning';
-    warning.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse';
+    warning.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse`;
     warning.innerHTML = `
-        <i class="fa-solid fa-exclamation-triangle text-xl"></i>
+        <i class="fa-solid ${icon} text-xl"></i>
         <span class="font-bold">${message}</span>
     `;
     
     document.body.appendChild(warning);
     
-    // Remove warning after 3 seconds
+    // Remove warning after 4 seconds (longer for eye movement alerts)
+    const displayTime = type.includes('eye-movement') ? 4000 : 3000;
     setTimeout(() => {
         if (warning.parentNode) {
             warning.style.animation = 'fadeOut 0.5s ease-out';
+            warning.style.opacity = '0';
             setTimeout(() => {
-                warning.remove();
+                if (warning.parentNode) {
+                    warning.remove();
+                }
             }, 500);
         }
-    }, 3000);
+    }, displayTime);
 }
 
 // Stop face detection

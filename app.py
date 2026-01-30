@@ -185,6 +185,7 @@ def on_cheat_detected(data):
     cheat_type = data.get('type')
     message = data.get('message')
     timestamp = data.get('timestamp')
+    severity = data.get('severity', 'low')
     
     # Save to database for logging
     try:
@@ -192,9 +193,24 @@ def on_cheat_detected(data):
         cursor.execute('SELECT id FROM interviews WHERE meeting_link = %s', (room,))
         interview = cursor.fetchone()
         if interview:
-            # You can create a cheat_logs table if needed
-            # For now, just log to console
-            print(f"Cheat detected in room {room}: {cheat_type} - {message} at {timestamp}")
+            # Log to console with severity
+            severity_emoji = {
+                'high': '🔴',
+                'medium': '🟡',
+                'low': '🟠'
+            }.get(severity, '⚪')
+            print(f"{severity_emoji} Cheat detected in room {room}: {cheat_type} - {message} at {timestamp} (Severity: {severity})")
+            
+            # TODO: Create cheat_logs table if you want to persist these:
+            # CREATE TABLE IF NOT EXISTS cheat_logs (
+            #     id INT AUTO_INCREMENT PRIMARY KEY,
+            #     interview_id INT NOT NULL,
+            #     cheat_type VARCHAR(50) NOT NULL,
+            #     message TEXT,
+            #     severity ENUM('low', 'medium', 'high') DEFAULT 'low',
+            #     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            #     FOREIGN KEY (interview_id) REFERENCES interviews(id)
+            # );
         cursor.close()
     except Exception as e:
         print(f"Error logging cheat detection: {e}")
@@ -203,7 +219,8 @@ def on_cheat_detected(data):
     emit('cheat-alert', {
         'type': cheat_type,
         'message': message,
-        'timestamp': timestamp
+        'timestamp': timestamp,
+        'severity': severity
     }, room=room)
 
 if __name__ == '__main__':
