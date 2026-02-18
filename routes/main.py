@@ -290,6 +290,42 @@ def interview(meeting_link):
     )
 
 
+@bp.route('/interview/<meeting_link>/details')
+def interview_details(meeting_link):
+    """Interview details page (read-only overview)."""
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+
+    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute('''
+        SELECT i.*,
+               c.name as candidate_name,
+               intv.name as interviewer_name
+        FROM interviews i
+        JOIN users c ON i.candidate_id = c.id
+        JOIN users intv ON i.interviewer_id = intv.id
+        WHERE i.meeting_link = %s
+    ''', (meeting_link,))
+    interview_data = cursor.fetchone()
+
+    if not interview_data:
+        flash('Interview not found.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    user_id = session['user_id']
+    if user_id != interview_data['interviewer_id'] and user_id != interview_data['candidate_id']:
+        flash('You are not authorized to view this interview.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    role = 'interviewer' if user_id == interview_data['interviewer_id'] else 'candidate'
+    return render_template(
+        'interview_details.html',
+        meeting_link=meeting_link,
+        interview=interview_data,
+        role=role
+    )
+
+
 @bp.route('/interview/<meeting_link>/resume')
 def interview_resume(meeting_link):
     """Serve the candidate resume for this interview (authorized users only)."""
