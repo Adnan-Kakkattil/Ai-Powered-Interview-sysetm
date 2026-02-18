@@ -70,12 +70,30 @@ def reset_admin():
     if not secret or request.args.get('key') != secret:
         flash('Invalid or missing reset key.', 'danger')
         return redirect(url_for('auth.login'))
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('DELETE FROM users WHERE role = ?', ('admin',))
-    db.commit()
-    flash('Admin account(s) removed. You can now create a new admin.', 'success')
-    return redirect(url_for('auth.setup_admin'))
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        # Get admin user ids (they may be referenced by interviews as interviewer_id)
+        cursor.execute('SELECT id FROM users WHERE role = ?', ('admin',))
+        admin_ids = [row['id'] for row in cursor.fetchall()]
+        if not admin_ids:
+            flash('No admin account to remove.', 'info')
+            return redirect(url_for('auth.setup_admin'))
+        placeholders = ','.join('?' * len(admin_ids))
+        # Delete dependent data first (foreign keys)
+        cursor.execute(
+            f'DELETE FROM chat_messages WHERE interview_id IN (SELECT id FROM interviews WHERE interviewer_id IN ({placeholders}))',
+            admin_ids
+        )
+        cursor.execute(f'DELETE FROM interviews WHERE interviewer_id IN ({placeholders})', admin_ids)
+        cursor.execute('DELETE FROM users WHERE role = ?', ('admin',))
+        db.commit()
+        flash('Admin account(s) removed. You can now create a new admin.', 'success')
+        return redirect(url_for('auth.setup_admin'))
+    except Exception as e:
+        current_app.logger.exception('reset_admin failed')
+        flash(f'Could not reset admin: {str(e)}', 'danger')
+        return redirect(url_for('auth.login'))
 
 
 @bp.route('/logout')

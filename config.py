@@ -18,5 +18,6 @@ def _db_path():
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev')
     DATABASE = _db_path()
-    # Upload limits (resume/CV)
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', str(10 * 1024 * 1024)))  # 10MB
+    # Optional: secret for /reset-admin?key=... (allows removing admin so setup-admin can run again)
+    RESET_ADMIN_SECRET = os.environ.get('RESET_ADMIN_SECRET', '')
