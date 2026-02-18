@@ -374,6 +374,109 @@ def interview_resume(meeting_link):
     # Inline for PDF preview; other formats will download/open depending on browser
     return send_file(abs_path, as_attachment=False, download_name=resume_original_name)
 
+
+@bp.route('/interview/<meeting_link>/run-code', methods=['POST'])
+def run_code(meeting_link):
+    """Execute code for the interview room (authorized users only). Returns stdout, stderr, exit_code."""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+
+    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute('SELECT * FROM interviews WHERE meeting_link = %s', (meeting_link,))
+    interview_data = cursor.fetchone()
+    cursor.close()
+
+    if not interview_data:
+        return jsonify({'success': False, 'error': 'Interview not found'}), 404
+
+    user_id = session.get('user_id')
+    if user_id != interview_data['interviewer_id'] and user_id != interview_data['candidate_id']:
+        return jsonify({'success': False, 'error': 'Not authorized'}), 403
+
+    data = request.get_json(silent=True) or {}
+    code = data.get('code', '')
+    language = (data.get('language') or 'python').lower().strip()
+
+    if not code or not code.strip():
+        return jsonify({
+            'success': True,
+            'stdout': '',
+            'stderr': 'No code to run.',
+            'exit_code': 0
+        })
+
+    import subprocess
+    import tempfile
+
+    run_timeout = 10  # seconds
+    stdout_text = ''
+    stderr_text = ''
+    exit_code = -1
+
+    try:
+        if language in ('python', 'python3', 'python 3.9'):
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+                f.write(code)
+                tmp_path = f.name
+            try:
+                result = subprocess.run(
+                    [__import__('sys').executable, tmp_path],
+                    capture_output=True,
+                    timeout=run_timeout,
+                    text=True,
+                    cwd=tempfile.gettempdir(),
+                )
+                stdout_text = result.stdout or ''
+                stderr_text = result.stderr or ''
+                exit_code = result.returncode
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+        elif language in ('javascript', 'node', 'node.js'):
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False, encoding='utf-8') as f:
+                f.write(code)
+                tmp_path = f.name
+            try:
+                result = subprocess.run(
+                    ['node', tmp_path],
+                    capture_output=True,
+                    timeout=run_timeout,
+                    text=True,
+                    cwd=tempfile.gettempdir(),
+                )
+                stdout_text = result.stdout or ''
+                stderr_text = result.stderr or ''
+                exit_code = result.returncode
+            except FileNotFoundError:
+                stderr_text = 'Node.js is not installed on the server. Only Python is supported.'
+                exit_code = -1
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+        else:
+            stderr_text = f'Language "{language}" is not supported. Use Python or JavaScript.'
+            exit_code = -1
+
+    except subprocess.TimeoutExpired:
+        stdout_text = ''
+        stderr_text = f'Execution timed out after {run_timeout} seconds.'
+        exit_code = -1
+    except Exception as e:
+        stderr_text = str(e)
+        exit_code = -1
+
+    return jsonify({
+        'success': exit_code == 0,
+        'stdout': stdout_text,
+        'stderr': stderr_text,
+        'exit_code': exit_code
+    })
+
+
 @bp.route('/interview/<meeting_link>/complete', methods=['POST'])
 def complete_interview(meeting_link):
     """Mark interview as completed - only interviewer can do this"""

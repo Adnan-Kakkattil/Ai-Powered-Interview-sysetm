@@ -380,10 +380,10 @@
                         </div>
                         <div class="h-4 w-px bg-gray-800"></div>
                         <div class="flex items-center gap-2">
-                            <select
+                            <select id="languageSelect"
                                 class="bg-transparent text-xs text-purple-300 font-medium focus:outline-none cursor-pointer">
-                                <option>Python 3.9</option>
-                                <option>JavaScript (Node)</option>
+                                <option value="python">Python 3.9</option>
+                                <option value="javascript">JavaScript (Node)</option>
                             </select>
                         </div>
                     </div>
@@ -391,7 +391,7 @@
                     <div class="flex items-center gap-2">
                         <button class="text-gray-400 hover:text-white px-2"><i
                                 class="fa-solid fa-gear text-xs"></i></button>
-                        <button
+                        <button id="runCodeBtn" type="button"
                             class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1 rounded flex items-center gap-1 transition-colors">
                             <i class="fa-solid fa-play text-[10px]"></i> Run Code
                         </button>
@@ -410,8 +410,8 @@
                         <span
                             class="text-xs font-bold text-gray-300 border-b-2 border-purple-500 h-full flex items-center">Terminal</span>
                     </div>
-                    <div class="flex-1 p-3 font-mono text-xs text-gray-400 overflow-auto">
-                        <span class="text-green-400">➜ ~</span> Ready...
+                    <div id="terminalOutput" class="flex-1 p-3 font-mono text-xs text-gray-400 overflow-auto whitespace-pre-wrap break-words">
+                        <span class="text-green-400">➜</span> Ready...
                     </div>
                 </div>
             </div>
