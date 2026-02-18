@@ -33,10 +33,9 @@ A Flask + MySQL + Socket.IO web app for conducting **live, proctored technical i
 - **Backend**
   - Python (tested with the repo’s `Dockerfile`: Python 3.9)
   - Flask
-  - Flask-MySQLdb (MySQL connector)
   - Flask-SocketIO + eventlet (realtime)
 - **Database**
-  - MySQL 8 (Docker uses `mysql:8.0`)
+  - SQLite (single file, no separate server)
 - **Frontend**
   - Jinja2 templates (server-rendered HTML)
   - Tailwind CSS (CDN)
@@ -56,7 +55,7 @@ A Flask + MySQL + Socket.IO web app for conducting **live, proctored technical i
 ```
 app.py                  # Flask app + Socket.IO events
 config.py               # Env-based configuration
-extensions.py           # mysql + socketio singletons
+extensions.py           # sqlite helpers + socketio
 routes/
   auth.py               # login/logout/setup-admin
   main.py               # dashboard/add-candidate/schedule/interview/resume endpoints
@@ -148,10 +147,10 @@ Environment variables are loaded via `python-dotenv` (`.env`) and read in `confi
 
 ### Required/commonly used
 - **`SECRET_KEY`**: Flask session secret
-- **`MYSQL_HOST`**
-- **`MYSQL_USER`**
-- **`MYSQL_PASSWORD`**
-- **`MYSQL_DB`** (default: `interview_system`)
+
+### Optional
+- **`DATABASE_PATH`**: Full path to SQLite database file. If not set, uses `instance/interview_system.db` in the project directory.
+- **`INSTANCE_PATH`**: Directory for the DB file (used if `DATABASE_PATH` is not set).
 
 ### Upload limit
 - **`MAX_CONTENT_LENGTH`**: max request size in bytes (default: 10MB)
@@ -169,11 +168,11 @@ docker compose up --build
 ### 2) Open the app
 - App: `http://127.0.0.1:5000`
 
-The MySQL container applies `schema.sql` automatically on first start.
+The app uses SQLite by default; the database file is created on first run (`python init_db.py` or when the app starts with an existing schema).
 
 ---
 
-## Run locally (XAMPP / local MySQL)
+## Run locally
 
 ### 1) Create & activate a virtualenv (optional but recommended)
 
@@ -188,9 +187,9 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 3) Configure `.env`
+### 3) Configure `.env` (optional)
 
-Set `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DB`, `SECRET_KEY`.
+Set `SECRET_KEY`. Optionally set `DATABASE_PATH` to a custom SQLite file path (default: `instance/interview_system.db`).
 
 ### 4) Initialize the DB
 
@@ -215,15 +214,12 @@ The server is configured to bind to **`0.0.0.0:5000`** (LAN/Docker friendly).
 
 ---
 
-## Run without Docker (Windows / XAMPP)
-
-This is the full “no Docker” setup for Windows.
+## Run without Docker (Windows)
 
 ### Prerequisites
 - **Python 3.9+** installed and available in PATH (`python --version`)
-- **MySQL running**
-  - If using **XAMPP**: start **Apache** (optional) and **MySQL** from the XAMPP control panel
 - **Pip** available (`pip --version`)
+- No separate database server needed (SQLite is file-based)
 
 ### 1) Create & activate a virtual environment
 
@@ -239,21 +235,14 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-If `flask-mysqldb` fails to install on Windows, it usually means MySQL client build deps are missing.
-Common fixes:
-- Install **Microsoft C++ Build Tools**
-- Install **MySQL / MariaDB C connector** (so `mysqlclient` can build)
-
-### 3) Configure `.env`
+### 3) Configure `.env` (optional)
 
 Create/update `.env` in the project root. Example:
 
 ```env
 SECRET_KEY=dev
-MYSQL_HOST=127.0.0.1
-MYSQL_USER=root
-MYSQL_PASSWORD=
-MYSQL_DB=interview_system
+# Optional: custom SQLite path (default: instance/interview_system.db)
+# DATABASE_PATH=./data/interview_system.db
 MAX_CONTENT_LENGTH=10485760
 ```
 
@@ -388,9 +377,9 @@ Resume serving endpoint is scoped to the interview:
 
 ## Troubleshooting
 
-### MySQL connection issues
-- Confirm `.env` matches your MySQL settings
-- Ensure the DB exists and schema has been applied (`python init_db.py`)
+### Database issues
+- Run `python init_db.py` to create the SQLite database and tables.
+- If the DB file is in a read-only or missing directory, set `DATABASE_PATH` in `.env` to a writable path.
 
 ### Resume button not visible in interview room
 - The candidate must have a stored resume (`users.resume_path` not NULL)

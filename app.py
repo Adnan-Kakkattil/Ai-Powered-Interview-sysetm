@@ -1,11 +1,26 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, g, current_app
 from config import Config
-from extensions import mysql, socketio
+from extensions import socketio, get_sqlite_connection
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
-mysql.init_app(app)
+# Ensure instance directory exists for SQLite DB
+import os
+_db_dir = os.path.dirname(app.config['DATABASE'])
+if _db_dir:
+    os.makedirs(_db_dir, exist_ok=True)
+
+@app.before_request
+def before_request():
+    from extensions import get_db
+    get_db()  # ensure g.db is set
+
+@app.teardown_request
+def teardown_request(exception=None):
+    if hasattr(g, 'db'):
+        g.db.close()
+
 socketio.init_app(app)
 
 # Import routes (will be created later)
@@ -68,16 +83,16 @@ def on_code_change(data):
     room = data['room']
     code = data['code']
     
-    # Save code to DB
     try:
-        cursor = mysql.connection.cursor()
-        cursor.execute('UPDATE interviews SET code_content = %s WHERE meeting_link = %s', (code, room))
-        mysql.connection.commit()
-        cursor.close()
+        conn = get_sqlite_connection(current_app.config['DATABASE'])
+        try:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE interviews SET code_content = ? WHERE meeting_link = ?', (code, room))
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f"Error saving code: {e}")
-        
-    # Broadcast code to everyone else in the room
     emit('code-update', {'code': code}, room=room, include_self=False)
 
 @socketio.on('chat-message')
@@ -87,22 +102,20 @@ def on_chat_message(data):
     username = data['username']
     timestamp = data.get('timestamp')
     
-    # Save chat to DB
     try:
-        cursor = mysql.connection.cursor()
-        # Get interview ID first
-        cursor.execute('SELECT id FROM interviews WHERE meeting_link = %s', (room,))
-        interview = cursor.fetchone()
-        if interview:
-            cursor.execute('INSERT INTO chat_messages (interview_id, sender_username, message) VALUES (%s, %s, %s)', 
-                           (interview[0], username, message))
-            mysql.connection.commit()
-        cursor.close()
+        conn = get_sqlite_connection(current_app.config['DATABASE'])
+        try:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id FROM interviews WHERE meeting_link = ?', (room,))
+            interview = cursor.fetchone()
+            if interview:
+                cursor.execute('INSERT INTO chat_messages (interview_id, sender_username, message) VALUES (?, ?, ?)',
+                               (interview['id'], username, message))
+                conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f"Error saving chat: {e}")
-        
-    emit('chat-message', {'message': message, 'username': username, 'timestamp': timestamp}, room=room, include_self=False)
-
     emit('chat-message', {'message': message, 'username': username, 'timestamp': timestamp}, room=room, include_self=False)
 
 @socketio.on('request-join')
@@ -116,12 +129,14 @@ def on_request_join(data):
     # Store user info for waiting room
     connected_users[request.sid] = {'room': f"{room}_waiting", 'username': username, 'waiting': True}
     
-    # Update DB status
     try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("UPDATE interviews SET candidate_join_status = 'requested' WHERE meeting_link = %s", (room,))
-        mysql.connection.commit()
-        cursor.close()
+        conn = get_sqlite_connection(current_app.config['DATABASE'])
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE interviews SET candidate_join_status = 'requested' WHERE meeting_link = ?", (room,))
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f"Error updating join status: {e}")
         
@@ -132,12 +147,14 @@ def on_request_join(data):
 def on_approve_join(data):
     room = data['room']
     
-    # Update DB status
     try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("UPDATE interviews SET candidate_join_status = 'approved' WHERE meeting_link = %s", (room,))
-        mysql.connection.commit()
-        cursor.close()
+        conn = get_sqlite_connection(current_app.config['DATABASE'])
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE interviews SET candidate_join_status = 'approved' WHERE meeting_link = ?", (room,))
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f"Error approving join: {e}")
         
@@ -151,12 +168,14 @@ def on_approve_join(data):
 def on_reject_join(data):
     room = data['room']
     
-    # Update DB status
     try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("UPDATE interviews SET candidate_join_status = 'rejected' WHERE meeting_link = %s", (room,))
-        mysql.connection.commit()
-        cursor.close()
+        conn = get_sqlite_connection(current_app.config['DATABASE'])
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE interviews SET candidate_join_status = 'rejected' WHERE meeting_link = ?", (room,))
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f"Error rejecting join: {e}")
         
@@ -187,21 +206,20 @@ def on_cheat_detected(data):
     timestamp = data.get('timestamp')
     severity = data.get('severity', 'low')
     
-    # Save to database for logging
     try:
-        cursor = mysql.connection.cursor()
-        cursor.execute('SELECT id FROM interviews WHERE meeting_link = %s', (room,))
-        interview = cursor.fetchone()
-        if interview:
-            # Log to console with severity
-            severity_emoji = {
-                'high': '🔴',
-                'medium': '🟡',
-                'low': '🟠'
-            }.get(severity, '⚪')
-            print(f"{severity_emoji} Cheat detected in room {room}: {cheat_type} - {message} at {timestamp} (Severity: {severity})")
-            
-            # TODO: Create cheat_logs table if you want to persist these:
+        conn = get_sqlite_connection(current_app.config['DATABASE'])
+        try:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id FROM interviews WHERE meeting_link = ?', (room,))
+            interview = cursor.fetchone()
+            if interview:
+                severity_emoji = {
+                    'high': '🔴',
+                    'medium': '🟡',
+                    'low': '🟠'
+                }.get(severity, '⚪')
+                print(f"{severity_emoji} Cheat detected in room {room}: {cheat_type} - {message} at {timestamp} (Severity: {severity})")
+                # TODO: Create cheat_logs table if you want to persist these:
             # CREATE TABLE IF NOT EXISTS cheat_logs (
             #     id INT AUTO_INCREMENT PRIMARY KEY,
             #     interview_id INT NOT NULL,
@@ -211,7 +229,8 @@ def on_cheat_detected(data):
             #     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             #     FOREIGN KEY (interview_id) REFERENCES interviews(id)
             # );
-        cursor.close()
+        finally:
+            conn.close()
     except Exception as e:
         print(f"Error logging cheat detection: {e}")
     

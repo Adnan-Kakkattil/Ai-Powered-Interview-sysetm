@@ -1,35 +1,21 @@
 FROM python:3.9-slim
 
-# Install system dependencies for mysqlclient
-RUN apt-get update && apt-get install -y \
-    default-libmysqlclient-dev \
-    build-essential \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
-# Copy requirements first for better Docker layer caching
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Create uploads directory if it doesn't exist
-RUN mkdir -p uploads/resumes
+RUN mkdir -p uploads/resumes /data && chmod -R 755 uploads
 
-# Set proper permissions
-RUN chmod -R 755 uploads
+# Initialize SQLite DB on first run (schema applied when app starts if missing)
+COPY schema.sql .
 
 EXPOSE 5000
 
-# Health check (using curl if available, or simple TCP check)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import socket; s=socket.socket(); s.settimeout(1); result=s.connect_ex(('localhost', 5000)); s.close(); exit(0 if result == 0 else 1)" || exit 1
 
-# Run the application
-CMD ["python", "app.py"]
+CMD ["sh", "-c", "python init_db.py 2>/dev/null || true; python app.py"]

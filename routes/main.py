@@ -1,15 +1,11 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, current_app, send_file, abort
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
-import MySQLdb.cursors
-from extensions import mysql
+from extensions import get_db
 import os
 import uuid
 
 bp = Blueprint('main', __name__)
-
-def get_db():
-    return mysql
 
 ALLOWED_RESUME_EXTENSIONS = {"pdf", "doc", "docx"}
 MAX_RESUME_BYTES = 10 * 1024 * 1024  # 10MB
@@ -20,35 +16,30 @@ def _allowed_resume_filename(filename: str) -> bool:
     ext = filename.rsplit(".", 1)[1].lower()
     return ext in ALLOWED_RESUME_EXTENSIONS
 
-def _ensure_candidate_profile_columns(cursor):
-    """
-    Ensure optional candidate-profile columns exist on `users`.
-    Keeps the app working even if the DB was created with an older schema.
-    """
-    cursor.execute("SHOW COLUMNS FROM users")
+def _ensure_candidate_profile_columns(cursor, conn):
+    """Ensure optional candidate-profile columns exist on `users` (SQLite)."""
+    cursor.execute("PRAGMA table_info(users)")
     rows = cursor.fetchall()
-    existing = set()
-    for r in rows:
-        # DictCursor => {'Field': 'colname', ...}
-        if isinstance(r, dict):
-            existing.add(r.get("Field"))
-        else:
-            existing.add(r[0])
+    existing = {r['name'] for r in rows}
 
     additions = []
     if "phone" not in existing:
-        additions.append("ADD COLUMN phone VARCHAR(30) NULL")
+        additions.append("ADD COLUMN phone TEXT")
     if "target_role" not in existing:
-        additions.append("ADD COLUMN target_role VARCHAR(100) NULL")
+        additions.append("ADD COLUMN target_role TEXT")
     if "experience_level" not in existing:
-        additions.append("ADD COLUMN experience_level VARCHAR(100) NULL")
+        additions.append("ADD COLUMN experience_level TEXT")
     if "resume_path" not in existing:
-        additions.append("ADD COLUMN resume_path VARCHAR(255) NULL")
+        additions.append("ADD COLUMN resume_path TEXT")
     if "resume_original_name" not in existing:
-        additions.append("ADD COLUMN resume_original_name VARCHAR(255) NULL")
+        additions.append("ADD COLUMN resume_original_name TEXT")
 
-    if additions:
-        cursor.execute(f"ALTER TABLE users {', '.join(additions)}")
+    for add in additions:
+        try:
+            cursor.execute(f"ALTER TABLE users {add}")
+            conn.commit()
+        except Exception:
+            pass
 
 @bp.route('/')
 def index():
@@ -58,20 +49,18 @@ def index():
 def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     role = session.get('role')
     user_id = session.get('user_id')
-    
-    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
-    
+    db = get_db()
+    cursor = db.cursor()
+
     if role == 'admin':
-        # Fetch all interviews
         cursor.execute('SELECT i.*, u.name as candidate_name FROM interviews i JOIN users u ON i.candidate_id = u.id ORDER BY i.scheduled_time DESC')
         interviews = cursor.fetchall()
         return render_template('dashboard.html', interviews=interviews, role='admin')
     else:
-        # Fetch candidate's interviews
-        cursor.execute('SELECT i.*, u.name as interviewer_name FROM interviews i JOIN users u ON i.interviewer_id = u.id WHERE i.candidate_id = %s ORDER BY i.scheduled_time DESC', (user_id,))
+        cursor.execute('SELECT i.*, u.name as interviewer_name FROM interviews i JOIN users u ON i.interviewer_id = u.id WHERE i.candidate_id = ? ORDER BY i.scheduled_time DESC', (user_id,))
         interviews = cursor.fetchall()
         return render_template('dashboard.html', interviews=interviews, role='candidate')
 
@@ -90,14 +79,11 @@ def add_candidate():
         password = request.form['password']
         
         hashed_password = generate_password_hash(password)
-        cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
-
-        # Ensure DB has columns for optional profile info + resume
+        db = get_db()
+        cursor = db.cursor()
         try:
-            _ensure_candidate_profile_columns(cursor)
-            get_db().connection.commit()
+            _ensure_candidate_profile_columns(cursor, db)
         except Exception as e:
-            # If ALTER fails (permissions), we can still create candidate without extra fields.
             print(f"Warning: could not ensure candidate profile columns: {e}")
 
         # Handle resume upload (optional)
@@ -142,15 +128,9 @@ def add_candidate():
             return render_template('add_candidate.html')
         
         try:
-            # Build INSERT dynamically based on existing columns
-            cursor.execute("SHOW COLUMNS FROM users")
+            cursor.execute("PRAGMA table_info(users)")
             cols = cursor.fetchall()
-            existing = set()
-            for r in cols:
-                if isinstance(r, dict):
-                    existing.add(r.get("Field"))
-                else:
-                    existing.add(r[0])
+            existing = {r['name'] for r in cols}
 
             insert_cols = ["username", "password_hash", "role", "name", "email"]
             insert_vals = [username, hashed_password, "candidate", name, email]
@@ -171,13 +151,13 @@ def add_candidate():
                 insert_cols.append("resume_original_name")
                 insert_vals.append(resume_original_name)
 
-            placeholders = ", ".join(["%s"] * len(insert_cols))
+            placeholders = ", ".join(["?"] * len(insert_cols))
             col_list = ", ".join(insert_cols)
             cursor.execute(
                 f'INSERT INTO users ({col_list}) VALUES ({placeholders})',
                 tuple(insert_vals)
             )
-            get_db().connection.commit()
+            db.commit()
             flash('Candidate added successfully.', 'success')
             return redirect(url_for('main.dashboard'))
         except Exception as e:
@@ -189,69 +169,64 @@ def add_candidate():
 def schedule_interview():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('auth.login'))
-        
-    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
-    
+
+    db = get_db()
+    cursor = db.cursor()
+
     if request.method == 'POST':
         title = request.form['title']
         scheduled_time = request.form['scheduled_time']
         candidate_id = request.form['candidate_id']
         interviewer_id = session['user_id']
-        
-        # Generate a unique meeting link (simple UUID for now)
-        import uuid
         meeting_link = str(uuid.uuid4())
-        
+
         try:
-            cursor.execute('INSERT INTO interviews (title, scheduled_time, interviewer_id, candidate_id, meeting_link) VALUES (%s, %s, %s, %s, %s)',
-                           (title, scheduled_time, interviewer_id, candidate_id, meeting_link))
-            get_db().connection.commit()
+            cursor.execute(
+                'INSERT INTO interviews (title, scheduled_time, interviewer_id, candidate_id, meeting_link) VALUES (?, ?, ?, ?, ?)',
+                (title, scheduled_time, interviewer_id, candidate_id, meeting_link)
+            )
+            db.commit()
             flash('Interview scheduled successfully.', 'success')
             return redirect(url_for('main.dashboard'))
         except Exception as e:
             flash(f'Error scheduling interview: {e}', 'danger')
-            
-    # Fetch candidates for the dropdown
+
     cursor.execute('SELECT id, name FROM users WHERE role = "candidate"')
     candidates = cursor.fetchall()
-    
     return render_template('schedule_interview.html', candidates=candidates)
 
 @bp.route('/interview/<meeting_link>')
 def interview(meeting_link):
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-        
-    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
-    
-    # Fetch interview details with names
+
+    db = get_db()
+    cursor = db.cursor()
     cursor.execute('''
-        SELECT i.*, 
-               c.name as candidate_name, 
-               intv.name as interviewer_name 
-        FROM interviews i 
-        JOIN users c ON i.candidate_id = c.id 
-        JOIN users intv ON i.interviewer_id = intv.id 
-        WHERE i.meeting_link = %s
+        SELECT i.*,
+               c.name as candidate_name,
+               intv.name as interviewer_name
+        FROM interviews i
+        JOIN users c ON i.candidate_id = c.id
+        JOIN users intv ON i.interviewer_id = intv.id
+        WHERE i.meeting_link = ?
     ''', (meeting_link,))
     interview_data = cursor.fetchone()
-    
+
     if not interview_data:
         flash('Interview not found.', 'danger')
         return redirect(url_for('main.dashboard'))
-        
+
     user_id = session['user_id']
-    
-    # Validate participation
     if user_id != interview_data['interviewer_id'] and user_id != interview_data['candidate_id']:
         flash('You are not authorized to join this interview.', 'danger')
         return redirect(url_for('main.dashboard'))
-        
-    # Determine role for this specific interview
+
     role = 'interviewer' if user_id == interview_data['interviewer_id'] else 'candidate'
-    
-    # Fetch chat history
-    cursor.execute('SELECT sender_username, message, DATE_FORMAT(timestamp, "%%H:%%i") as timestamp FROM chat_messages WHERE interview_id = %s ORDER BY timestamp ASC', (interview_data['id'],))
+    cursor.execute(
+        "SELECT sender_username, message, strftime('%%H:%%M', timestamp) as timestamp FROM chat_messages WHERE interview_id = ? ORDER BY timestamp ASC",
+        (interview_data['id'],)
+    )
     chat_history = cursor.fetchall()
     
     # Fetch join status
@@ -262,7 +237,7 @@ def interview(meeting_link):
     resume_original_name = None
     resume_ext = None
     try:
-        cursor.execute('SELECT resume_path, resume_original_name FROM users WHERE id = %s', (interview_data['candidate_id'],))
+        cursor.execute('SELECT resume_path, resume_original_name FROM users WHERE id = ?', (interview_data['candidate_id'],))
         r = cursor.fetchone()
         if r:
             resume_path = r.get('resume_path')
@@ -296,7 +271,8 @@ def interview_details(meeting_link):
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
 
-    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
+    db = get_db()
+    cursor = db.cursor()
     cursor.execute('''
         SELECT i.*,
                c.name as candidate_name,
@@ -304,7 +280,7 @@ def interview_details(meeting_link):
         FROM interviews i
         JOIN users c ON i.candidate_id = c.id
         JOIN users intv ON i.interviewer_id = intv.id
-        WHERE i.meeting_link = %s
+        WHERE i.meeting_link = ?
     ''', (meeting_link,))
     interview_data = cursor.fetchone()
 
@@ -332,26 +308,22 @@ def interview_resume(meeting_link):
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
 
-    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
-    cursor.execute('SELECT * FROM interviews WHERE meeting_link = %s', (meeting_link,))
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM interviews WHERE meeting_link = ?', (meeting_link,))
     interview_data = cursor.fetchone()
     if not interview_data:
-        cursor.close()
         abort(404)
 
     user_id = session.get('user_id')
     if user_id != interview_data['interviewer_id'] and user_id != interview_data['candidate_id']:
-        cursor.close()
         abort(403)
 
     try:
-        cursor.execute('SELECT resume_path, resume_original_name FROM users WHERE id = %s', (interview_data['candidate_id'],))
+        cursor.execute('SELECT resume_path, resume_original_name FROM users WHERE id = ?', (interview_data['candidate_id'],))
         user_row = cursor.fetchone()
     except Exception:
-        cursor.close()
         abort(404)
-
-    cursor.close()
 
     if not user_row:
         abort(404)
@@ -381,10 +353,10 @@ def run_code(meeting_link):
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'Not authenticated'}), 401
 
-    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
-    cursor.execute('SELECT * FROM interviews WHERE meeting_link = %s', (meeting_link,))
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM interviews WHERE meeting_link = ?', (meeting_link,))
     interview_data = cursor.fetchone()
-    cursor.close()
 
     if not interview_data:
         return jsonify({'success': False, 'error': 'Interview not found'}), 404
@@ -482,30 +454,22 @@ def complete_interview(meeting_link):
     """Mark interview as completed - only interviewer can do this"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Not authenticated'}), 401
-    
-    cursor = get_db().connection.cursor(MySQLdb.cursors.DictCursor)
-    
-    # Fetch interview details
-    cursor.execute('SELECT * FROM interviews WHERE meeting_link = %s', (meeting_link,))
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM interviews WHERE meeting_link = ?', (meeting_link,))
     interview_data = cursor.fetchone()
-    
+
     if not interview_data:
-        cursor.close()
         return jsonify({'success': False, 'message': 'Interview not found'}), 404
-    
+
     user_id = session['user_id']
-    
-    # Only interviewer can mark as completed
     if user_id != interview_data['interviewer_id']:
-        cursor.close()
         return jsonify({'success': False, 'message': 'Only interviewer can mark interview as completed'}), 403
-    
-    # Update status to completed
+
     try:
-        cursor.execute('UPDATE interviews SET status = "completed" WHERE meeting_link = %s', (meeting_link,))
-        get_db().connection.commit()
-        cursor.close()
+        cursor.execute('UPDATE interviews SET status = "completed" WHERE meeting_link = ?', (meeting_link,))
+        db.commit()
         return jsonify({'success': True, 'message': 'Interview marked as completed'})
     except Exception as e:
-        cursor.close()
         return jsonify({'success': False, 'message': f'Error updating status: {str(e)}'}), 500

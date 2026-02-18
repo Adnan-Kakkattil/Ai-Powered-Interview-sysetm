@@ -1,41 +1,40 @@
-CREATE DATABASE IF NOT EXISTS interview_system;
-USE interview_system;
+-- SQLite schema for NeuroHire Interview System
 
 CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'candidate') NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    phone VARCHAR(30),
-    target_role VARCHAR(100),
-    experience_level VARCHAR(100),
-    resume_path VARCHAR(255),
-    resume_original_name VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('admin', 'candidate')),
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    phone TEXT,
+    target_role TEXT,
+    experience_level TEXT,
+    resume_path TEXT,
+    resume_original_name TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS interviews (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    scheduled_time DATETIME NOT NULL,
-    interviewer_id INT NOT NULL,
-    candidate_id INT NOT NULL,
-    status ENUM('scheduled', 'completed', 'cancelled') DEFAULT 'scheduled',
-    meeting_link VARCHAR(255) UNIQUE NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    scheduled_time TEXT NOT NULL,
+    interviewer_id INTEGER NOT NULL,
+    candidate_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'completed', 'cancelled')),
+    meeting_link TEXT UNIQUE NOT NULL,
     code_content TEXT,
-    candidate_join_status ENUM('pending', 'requested', 'approved', 'rejected') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    candidate_join_status TEXT NOT NULL DEFAULT 'pending' CHECK(candidate_join_status IN ('pending', 'requested', 'approved', 'rejected')),
+    created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (interviewer_id) REFERENCES users(id),
     FOREIGN KEY (candidate_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS chat_messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    interview_id INT NOT NULL,
-    sender_username VARCHAR(50) NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    interview_id INTEGER NOT NULL,
+    sender_username TEXT NOT NULL,
     message TEXT NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    timestamp TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (interview_id) REFERENCES interviews(id)
 );

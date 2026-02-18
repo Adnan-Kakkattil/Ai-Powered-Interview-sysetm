@@ -1,5 +1,4 @@
 flask
-flask-mysqldb
 flask-socketio
 python-dotenv
 eventlet
