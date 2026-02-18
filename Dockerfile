@@ -10,9 +10,6 @@ COPY . .
 
 RUN mkdir -p uploads/resumes /data && chmod -R 755 uploads
 
-# Initialize SQLite DB on first run (schema applied when app starts if missing)
-COPY schema.sql .
-
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

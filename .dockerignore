@@ -56,10 +56,11 @@ docker-compose.yml
 README.md
 FACE_DETECTION_SETUP.md
 
-# Database
-*.sql
+# Database (keep schema.sql for init_db.py)
 *.db
 *.sqlite
+*.sql
+!schema.sql
 
 # Logs
 *.log
