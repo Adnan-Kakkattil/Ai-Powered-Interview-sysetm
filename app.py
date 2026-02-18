@@ -5,11 +5,15 @@ from extensions import socketio, get_sqlite_connection
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Ensure instance directory exists for SQLite DB
+# Ensure directory for SQLite DB exists (skip on read-only; config may use /tmp)
 import os
-_db_dir = os.path.dirname(app.config['DATABASE'])
-if _db_dir:
-    os.makedirs(_db_dir, exist_ok=True)
+_db_path = app.config['DATABASE']
+_db_dir = os.path.dirname(_db_path)
+if _db_dir and _db_dir != '/tmp':
+    try:
+        os.makedirs(_db_dir, exist_ok=True)
+    except OSError:
+        pass
 
 @app.before_request
 def before_request():

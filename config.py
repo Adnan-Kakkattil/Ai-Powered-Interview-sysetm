@@ -8,12 +8,26 @@ def _db_path():
     env_path = os.environ.get('DATABASE_PATH')
     if env_path:
         return os.path.abspath(env_path)
+    # Vercel/serverless: filesystem is read-only except /tmp — use /tmp so DB can be created
+    if os.environ.get('VERCEL') == '1':
+        return '/tmp/interview_system.db'
     # Prefer instance folder so it's outside the app tree
     instance_path = os.environ.get('INSTANCE_PATH')
     if instance_path:
-        os.makedirs(instance_path, exist_ok=True)
+        try:
+            os.makedirs(instance_path, exist_ok=True)
+        except OSError:
+            pass
         return os.path.join(instance_path, 'interview_system.db')
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'interview_system.db')
+    base = os.path.dirname(os.path.abspath(__file__))
+    instance_dir = os.path.join(base, 'instance')
+    try:
+        os.makedirs(instance_dir, exist_ok=True)
+    except OSError:
+        # e.g. read-only filesystem: fallback to /tmp if we're on a platform that has it
+        if os.name != 'nt' and os.path.isdir('/tmp'):
+            return '/tmp/interview_system.db'
+    return os.path.join(instance_dir, 'interview_system.db')
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev')
