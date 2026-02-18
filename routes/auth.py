@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+import os
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import get_db
@@ -60,6 +61,21 @@ def setup_admin():
             flash(f'Error creating admin: {e}', 'danger')
 
     return render_template('setup_admin.html')
+
+
+@bp.route('/reset-admin')
+def reset_admin():
+    """Remove existing admin user(s) so /setup-admin can create a new one. Requires ?key=RESET_ADMIN_SECRET (set in env)."""
+    secret = os.environ.get('RESET_ADMIN_SECRET') or current_app.config.get('RESET_ADMIN_SECRET')
+    if not secret or request.args.get('key') != secret:
+        flash('Invalid or missing reset key.', 'danger')
+        return redirect(url_for('auth.login'))
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('DELETE FROM users WHERE role = ?', ('admin',))
+    db.commit()
+    flash('Admin account(s) removed. You can now create a new admin.', 'success')
+    return redirect(url_for('auth.setup_admin'))
 
 
 @bp.route('/logout')
