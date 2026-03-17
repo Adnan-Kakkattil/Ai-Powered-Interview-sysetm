@@ -955,20 +955,45 @@
 
         // Candidate Flow
         if (ROLE === 'candidate' && JOIN_STATUS !== 'approved') {
-            // Device Check
+            // Device Check — with fallback so user can always join
             if (checkDevicesBtn) {
                 checkDevicesBtn.addEventListener('click', async () => {
+                    checkDevicesBtn.disabled = true;
+                    checkDevicesBtn.textContent = 'Checking...';
+                    
                     try {
+                        // Try video + audio first
                         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                         previewVideo.srcObject = stream;
-                        deviceStatus.textContent = "Camera and Microphone are working!";
-                        deviceStatus.className = "mt-4 text-sm text-green-500";
+                        deviceStatus.textContent = '✅ Camera and Microphone are working!';
+                        deviceStatus.className = 'mt-4 text-sm text-green-500';
                         askToJoinBtn.disabled = false;
-                    } catch (err) {
-                        console.error(err);
-                        deviceStatus.textContent = "Error accessing devices: " + err.message;
-                        deviceStatus.className = "mt-4 text-sm text-red-500";
+                    } catch (err1) {
+                        try {
+                            // Try audio only
+                            const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+                            previewVideo.srcObject = stream;
+                            deviceStatus.textContent = '⚠️ No camera detected — you can join with microphone only.';
+                            deviceStatus.className = 'mt-4 text-sm text-yellow-400';
+                            askToJoinBtn.disabled = false;
+                        } catch (err2) {
+                            try {
+                                // Try video only
+                                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                                previewVideo.srcObject = stream;
+                                deviceStatus.textContent = '⚠️ No microphone detected — you can join with camera only.';
+                                deviceStatus.className = 'mt-4 text-sm text-yellow-400';
+                                askToJoinBtn.disabled = false;
+                            } catch (err3) {
+                                // No devices — still allow join in view-only mode
+                                deviceStatus.textContent = '⚠️ No camera or microphone found — you can still join in view-only mode.';
+                                deviceStatus.className = 'mt-4 text-sm text-orange-400';
+                                askToJoinBtn.disabled = false;
+                            }
+                        }
                     }
+                    checkDevicesBtn.disabled = false;
+                    checkDevicesBtn.textContent = 'Check Devices';
                 });
             }
 

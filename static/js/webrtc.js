@@ -100,26 +100,52 @@ async function flushPendingCandidates() {
     pendingIceCandidates = [];
 }
 
-// ─── Start Meeting ────────────────────────────────────────────────────────────
+// ─── Start Meeting (with graceful fallback) ───────────────────────────────────
+function applyStream(stream, label) {
+    localStream = stream;
+    localVideo.srcObject = stream;
+    const faceDetectionVideo = document.getElementById('faceDetectionVideo');
+    if (faceDetectionVideo) faceDetectionVideo.srcObject = stream;
+    socket.emit('join', { room: ROOM_ID, username: USERNAME });
+    showToast(label);
+}
+
 function initializeMeeting() {
     console.log('Initializing meeting... ROLE =', ROLE);
 
+    // Try video + audio
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-            localStream = stream;
-            localVideo.srcObject = stream;
-
-            // Also feed to face detection video if present
-            const faceDetectionVideo = document.getElementById('faceDetectionVideo');
-            if (faceDetectionVideo) faceDetectionVideo.srcObject = stream;
-
-            // Join the signaling room
-            socket.emit('join', { room: ROOM_ID, username: USERNAME });
-            showToast('Camera & microphone ready');
-        })
-        .catch(error => {
-            console.error('Error accessing media devices:', error);
-            alert('Could not access camera/microphone. Please allow permissions and reload.');
+        .then(stream => applyStream(stream, '📹 Camera & microphone ready'))
+        .catch(() => {
+            console.warn('Video+audio failed — trying audio only...');
+            // Try audio only
+            navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+                .then(stream => {
+                    showToast('⚠️ Camera unavailable — joining with microphone only');
+                    applyStream(stream, '🎤 Microphone only (no camera)');
+                    // Hide local video box since no camera
+                    if (localVideo) localVideo.closest?.('.absolute.bottom-4.right-4') && 
+                        (localVideo.closest('.absolute.bottom-4.right-4').style.display = 'none');
+                })
+                .catch(() => {
+                    console.warn('Audio-only failed — trying video only...');
+                    // Try video only
+                    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                        .then(stream => {
+                            showToast('⚠️ Microphone unavailable — joining with camera only');
+                            applyStream(stream, '📷 Camera only (no microphone)');
+                        })
+                        .catch(() => {
+                            // No devices at all — join without media
+                            console.warn('No media devices available — joining without camera/mic');
+                            showToast('⚠️ No camera or mic — joining in view-only mode');
+                            localStream = null;
+                            if (localVideo) localVideo.closest?.('.absolute.bottom-4.right-4') &&
+                                (localVideo.closest('.absolute.bottom-4.right-4').style.display = 'none');
+                            // Still join the room
+                            socket.emit('join', { room: ROOM_ID, username: USERNAME });
+                        });
+                });
         });
 }
 
