@@ -1,11 +1,18 @@
 // Face and Eye Detection for Cheat Detection
 // Using face-api.js library (vladmandic/face-api)
+//
+// ROLES:
+//   candidate  → runs on localVideo  (their own camera) → emits cheat-detected alerts
+//   interviewer → runs on remoteVideo (candidate's stream) → shows overlay only, no alerts
 
 let faceDetectionModel = null;
 let isDetecting = false;
 let detectionInterval = null;
 let detectionCanvas = null;
 let detectionContext = null;
+// Whether this instance should emit cheat alerts to the server.
+// True only for the candidate's browser.
+let _emitCheatAlerts = false;
 let cheatWarnings = {
     noFace: 0,
     multipleFaces: 0,
@@ -220,7 +227,8 @@ function getFaceDistance(face) {
 }
 
 // Start face detection on video stream
-async function startFaceDetection(videoElement) {
+// emitAlerts: if true, cheat events are sent to the server (candidate side only)
+async function startFaceDetection(videoElement, emitAlerts) {
     if (!videoElement || !videoElement.videoWidth) {
         console.error('Video element not ready');
         return;
@@ -236,6 +244,9 @@ async function startFaceDetection(videoElement) {
         console.error('face-api.js not loaded');
         return;
     }
+    
+    // Set whether this instance should emit cheat alerts
+    _emitCheatAlerts = !!emitAlerts;
     
     // Check if models are loaded
     if (!faceDetectionModel) {
@@ -257,7 +268,7 @@ async function startFaceDetection(videoElement) {
     }
     
     isDetecting = true;
-    console.log('Starting face detection...');
+    console.log('Starting face detection on:', videoElement.id, '| emitAlerts:', _emitCheatAlerts);
     
     // Detection options
     const detectionOptions = new faceapi.TinyFaceDetectorOptions({
@@ -268,6 +279,12 @@ async function startFaceDetection(videoElement) {
     // Start detection loop
     detectionInterval = setInterval(async () => {
         if (!videoElement || !videoElement.videoWidth || !videoElement.videoHeight) return;
+        
+        // Resize canvas if video dimensions changed (e.g. after remote stream starts)
+        if (detectionCanvas) {
+            if (detectionCanvas.width !== videoElement.videoWidth) detectionCanvas.width = videoElement.videoWidth;
+            if (detectionCanvas.height !== videoElement.videoHeight) detectionCanvas.height = videoElement.videoHeight;
+        }
         
         try {
             // Detect faces with landmarks
@@ -317,7 +334,76 @@ async function startFaceDetection(videoElement) {
     }, 500); // Check every 500ms
 }
 
-// Update face detection status indicator
+// Stop face detection
+function stopFaceDetection() {
+    if (detectionInterval) {
+        clearInterval(detectionInterval);
+        detectionInterval = null;
+    }
+    isDetecting = false;
+    console.log('Face detection stopped');
+}
+
+// Initialize face detection — role-aware:
+//   candidate  → localVideo  (their own camera) + emits cheat alerts
+//   interviewer → remoteVideo (candidate's stream) + no alerts, just overlay
+function initializeFaceDetection() {
+    const role = (typeof ROLE !== 'undefined') ? ROLE : 'candidate';
+    
+    if (role === 'interviewer') {
+        // ── INTERVIEWER: watch the candidate via remoteVideo ──────────────────
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (!remoteVideo) return;
+        
+        function tryStartOnRemote() {
+            if (remoteVideo.srcObject && remoteVideo.videoWidth > 0) {
+                startFaceDetection(remoteVideo, false); // false = no cheat alert emissions
+            } else {
+                // Wait up to 60s for the remote stream to arrive
+                let waited = 0;
+                const poll = setInterval(() => {
+                    waited += 500;
+                    if (remoteVideo.srcObject && remoteVideo.videoWidth > 0) {
+                        clearInterval(poll);
+                        startFaceDetection(remoteVideo, false);
+                    } else if (waited > 60000) {
+                        clearInterval(poll);
+                        console.warn('Remote stream never arrived for face detection');
+                    }
+                }, 500);
+            }
+        }
+        
+        // Also restart detection whenever the remote stream is replaced
+        remoteVideo.addEventListener('loadedmetadata', () => {
+            if (isDetecting) stopFaceDetection();
+            startFaceDetection(remoteVideo, false);
+        });
+        
+        tryStartOnRemote();
+        
+    } else {
+        // ── CANDIDATE: watch their own camera via localVideo ──────────────────
+        const localVideo = document.getElementById('localVideo');
+        if (!localVideo) return;
+        
+        if (localVideo.srcObject && localVideo.readyState >= 2) {
+            startFaceDetection(localVideo, true); // true = emit cheat alerts to server
+        } else {
+            localVideo.addEventListener('loadedmetadata', () => {
+                startFaceDetection(localVideo, true);
+            });
+        }
+    }
+}
+
+// Export functions for global access
+window.faceDetection = {
+    start: startFaceDetection,
+    stop: stopFaceDetection,
+    initialize: initializeFaceDetection
+};
+
 function updateFaceDetectionStatus(detections) {
     const statusElement = document.getElementById('faceDetectionStatus');
     if (!statusElement) return;
@@ -469,8 +555,9 @@ function triggerCheatWarning(message, type) {
     // Play alert sound (if available)
     playAlertSound();
     
-    // Emit warning to server (for interviewer to see)
-    if (typeof socket !== 'undefined' && socket && typeof ROOM_ID !== 'undefined') {
+    // Emit warning to server ONLY from the candidate side
+    // (_emitCheatAlerts is set to true only when running on localVideo i.e. candidate)
+    if (_emitCheatAlerts && typeof socket !== 'undefined' && socket && typeof ROOM_ID !== 'undefined') {
         socket.emit('cheat-detected', {
             room: ROOM_ID,
             type: type,
@@ -578,36 +665,4 @@ function showCheatWarning(message, type) {
     }, displayTime);
 }
 
-// Stop face detection
-function stopFaceDetection() {
-    if (detectionInterval) {
-        clearInterval(detectionInterval);
-        detectionInterval = null;
-    }
-    isDetecting = false;
-    console.log('Face detection stopped');
-}
-
-// Initialize when video is ready
-function initializeFaceDetection() {
-    const localVideo = document.getElementById('localVideo');
-    
-    if (localVideo && localVideo.srcObject) {
-        localVideo.addEventListener('loadedmetadata', () => {
-            startFaceDetection(localVideo);
-        });
-        
-        // Also try immediately if video is already loaded
-        if (localVideo.readyState >= 2) {
-            startFaceDetection(localVideo);
-        }
-    }
-}
-
-// Export functions for global access
-window.faceDetection = {
-    start: startFaceDetection,
-    stop: stopFaceDetection,
-    initialize: initializeFaceDetection
-};
 
