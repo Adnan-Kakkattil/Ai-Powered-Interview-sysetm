@@ -937,17 +937,6 @@
         const approveJoinBtn = document.getElementById('approveJoinBtn');
         const denyJoinBtn = document.getElementById('denyJoinBtn');
 
-        // Wait for socket connection before setting up handlers
-        socket.on('connect', () => {
-            console.log('Socket connected');
-            
-            // Interviewer: Join main room immediately to receive join requests
-            if (ROLE === 'interviewer') {
-                socket.emit('join', { room: ROOM_ID, username: USERNAME });
-                console.log('Interviewer joined room:', ROOM_ID);
-            }
-        });
-        
         // Handle socket disconnection
         socket.on('disconnect', () => {
             console.log('Socket disconnected');
@@ -1014,18 +1003,16 @@
                     showToast('You have been approved! Joining the interview...');
                 }
                 
-                // Leave waiting room and join main room
+                // Leave waiting room, then initializeMeeting will join main room + start WebRTC
                 socket.emit('leave', { room: `${ROOM_ID}_waiting`, username: USERNAME });
                 
-                // Small delay to ensure room transition
+                // Short delay to ensure the leave is processed before joining main room
                 setTimeout(() => {
-                    socket.emit('join', { room: ROOM_ID, username: USERNAME });
-                    
-                    // Start WebRTC meeting
+                    // initializeMeeting() gets camera stream then emits 'join' internally
                     if (typeof initializeMeeting === 'function') {
                         initializeMeeting();
                     }
-                }, 100);
+                }, 300);
             });
 
             socket.on('join-rejected', (data) => {
@@ -1034,16 +1021,14 @@
                 window.location.href = "{{ url_for('main.dashboard') }}";
             });
         } else {
-            // Interviewer or Approved Candidate - join immediately
-            socket.on('connect', () => {
-                if (typeof initializeMeeting === 'function') {
-                    initializeMeeting();
-                }
-            });
-            
-            // Also try immediately in case socket is already connected
-            if (socket.connected && typeof initializeMeeting === 'function') {
+            // Interviewer or already-approved candidate — start media immediately.
+            // initializeMeeting() gets the camera then emits 'join' once stream is ready.
+            if (socket.connected) {
                 initializeMeeting();
+            } else {
+                socket.on('connect', () => {
+                    initializeMeeting();
+                });
             }
         }
 
